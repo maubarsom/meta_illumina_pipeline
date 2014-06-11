@@ -1,0 +1,237 @@
+# Viral discovery pipeline for Illumina (MiSeq) data
+
+# Author: Mauricio Barrientos-Somarribas
+# Email:  mauricio.barrientos@ki.se
+
+# Copyright 2014 Mauricio Barrientos-Somarribas
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# To-do's
+#@TODO: Consider Prinseq/trimmomatic for quality filtering
+#@TODO: Consider alternative mappers(Stampy/STAR) and read removal strategies
+#@TODO: Merge overlapping paired-ends into single end- U-Search/pandaseq
+#@TODO: Dataset reduction: Choose Diginorm/Fixseq/none?
+#@TODO: Try other assemblers: SGA, CABOG
+#@TODO: Extract singletons via mapping/file parsing after assembly
+#@TODO: Classify paired-end reads with Kraken? Does it make sense?
+#@TODO: Include protein homology based classification - blastx?
+
+#Make parameters
+SHELL := /bin/bash
+
+input_files := $(wildcard reads/*.fastq.gz) $(wildcard reads/*.fq.gz) $(wildcard reads/*.fq) $(wildcard reads/*.fastq)
+output_basename :=
+
+ifneq $(words $(input_files)) 2
+$(error Read files have not been detected)
+endif
+
+ifndef output_basename
+$(error Variable output_basename not set.)
+endif
+
+#Run params
+threads:=16
+
+#Databases
+db_path:=/labcommon/db
+bwa_hg_ref:= $(db_path)/iGenomes/Homo_Sapiens/Ensembl/GRCh37/Sequence/BWAIndex/genome.fa
+blastdb_folder:=$(db_path)/blastdb
+kraken_db:=$(db_path)/krakendb/kraken140311/
+swissprot_fasta:=$(db_path)/fasta/uniprot_sprot.fasta
+refseq_virus_fasta := $(db_path)/fasta/viral.1.1.genomic.fna
+
+#Paths to binaries
+FragGeneScan_bin:=/labcommon/tools/FragGeneScan1.18/run_FragGeneScan.pl
+
+#Tool parameters
+blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -show_gis
+megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
+blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
+
+#Logging info
+log_name := $(output_basename)_$(shell date +%s).log
+log_file := >( tee -a $(log_name) >&2 )
+
+#Prefixes for output files
+qf_prefix := $(output_basename)_q20h
+bwa_pre := $(nesoni_pre)_grch37
+sortsam_pre := $(bwa_pre)_sort
+filtersam_pre := $(sortsam_pre)_filter
+sam2fq_pre := $(filtersam_pre)_sam2fq
+diginorm_pre:=$(sam2fq_pre)_dgnrm
+
+#Outputs
+kraken_reports:= kraken_raymeta.report kraken_fermi.report kraken_abyss.report
+phmmer_files := raymeta_fgs_phmmer.tbl fermi_fgs_phmmer.tbl abyss_fgs_phmmer.tbl
+blastp_out := raymeta_fgs_blastp.xml fermi_fgs_blastp.xml abyss_fgs_blastp.xml reads_pe_fgs_blastp.xml reads_se_fgs_blastp.xml
+blastx_out := raymeta_blastx.xml fermi_blastx.xml abyss_blastx.xml
+
+#Delete produced files if step fails
+.DELETE_ON_ERROR:
+#Files produced by implicit rules are not deleted
+.SECONDARY:
+
+.NOTPARALLEL:
+
+all: $(kraken_reports) $(phmmer_files)  $(blastp_out)
+
+#QC raw reads
+
+
+#Quality filtering
+quality_filtering/$(nesoni_pre)_R%.fq.gz: $(input_files)
+	@echo -e "\nNesoni Quality Filtering\n\n" > $(log_file)
+	nesoni clip --homopolymers yes --quality 20 --length 75 \
+	--out-separate yes $(nesoni_pre) pairs: $^ 2> $(log_file)
+
+#Quality assesment
+%.fq_fastqc.zip: %.fq.gz
+	fastqc $^
+
+#Map paired-end reads against the Human Genome using BWA
+$(bwa_pre)_pe.sam: $(nesoni_pre)_R1.fq.gz $(nesoni_pre)_R2.fq.gz
+	@echo -e "\nMapping paired-end reads to GRCh37 with BWA MEM\n\n" > $(log_file)
+	bwa mem -t $(threads) -T 20 -M $(bwa_hg_ref) $^ > $@ 2> $(log_file)
+
+#Map single end reads against the Human Genome using BWA
+$(bwa_pre)_se.sam: $(nesoni_pre)_single.fq.gz
+	@echo -e "\nMapping single-end reads to GRCh37 with BWA MEM\n\n" > $(log_file)
+	bwa mem -t $(threads) -T 20 -M $(bwa_hg_ref) $^ > $@ 2> $(log_file)
+
+#Convert from sam to bam removing secondary mappings
+$(bwa_pre)_pe.bam $(bwa_pre)_se.bam: $(bwa_pre)_%.bam: $(bwa_pre)_%.sam
+	@echo -e "\nConverting .sam to .bam\n\n" > $(log_file)
+	samtools view -F 256 -hSb -o $@ $^ 2> $(log_file)
+
+#Sort files by queryname
+$(sortsam_pre)_pe.bam $(sortsam_pre)_se.bam: $(sortsam_pre)_%.bam : $(bwa_pre)_%.bam
+	@echo -e "\nSort bam file by queryname\n\n" > $(log_file)
+	run_picard SortSam.jar INPUT=$^ OUTPUT=$@ SORT_ORDER=queryname 2> $(log_file)
+
+#Keep only reads that did not map confidently (with both pairs)
+$(filtersam_pre)_pe.bam $(filtersam_pre)_se.bam: $(filtersam_pre)_%.bam : $(sortsam_pre)_%.bam
+	@echo -e "\nExtract $* reads that did not map to GRCh37\n\n" > $(log_file)
+	run_picard FilterSamReads.jar INPUT=$^ OUTPUT=$@ FILTER=excludeAligned SORT_ORDER=queryname WRITE_READS_FILES=False 2> $(log_file)
+
+#Convert unmapped reads to Fastq for assembly
+#$(sam2fq_pre).R%.fq: $(filtersam_pre).bam
+#	run_picard SamToFastq.jar INPUT=$^ FASTQ=$(sam2fq_pre).R1.fq SECOND_END_FASTQ=$(sam2fq_pre).R2.fq $(log_file)
+
+#Alternatively use interleaved paired-end fastq format
+$(sam2fq_pre)_pe.fq $(sam2fq_pre)_se.fq: $(sam2fq_pre)_%.fq : $(filtersam_pre)_%.bam
+	@echo -e "\nConvert bam to interleaved fastq\n\n" > $(log_file)
+	run_picard SamToFastq.jar INPUT=$^ FASTQ=$@ INTERLEAVE=True 2> $(log_file)
+
+#***********************Dataset reduction*********************************
+
+#Apply one pass diginorm procedure, normalize to 20X cov.
+#-N number of hashes 4, -x min size of hash, -k kmer size, -C coverage cutoff
+# $(diginorm_pre).fq: $(sam2fq_pre).fq
+# 	echo -e "\nApply one-pass diginorm, coverage 20X\n\n" > $(log_file)
+# 	normalize-by-median.py -C 20 --paired -k 20 -N 4 -x 2.5e8 $^ 2> $(log_file)
+# 	mv $(sam2fq_pre).fq.keep $@
+
+#*************************Assembly Step**********************************************
+#*********************Meta-Ray*************
+raymeta/Contigs.fasta: $(sam2fq_pre)_pe.fq
+	@echo -e "\nAssembling reads with Ray Meta\n\n" > $(log_file)
+	mpiexec -n 16 Ray Meta -i $^ -o $(dir $@) 2> $(log_file)
+
+raymeta_contigs.fa: raymeta/Contigs.fasta
+	ln -s $^ $@
+
+#*********************Fermi*******************
+#Runs Fermi assembler until the 4th step.
+#Qualities are not neccessary for Kraken/Blast classification
+fermi/fmdef.p4.fa.gz: $(sam2fq_pre)_pe.fq
+	mkdir -p fermi
+	cd fermi && run-fermi.pl -t $(threads) -c ../$^ > assembly.mak 2> $(log_file)
+	cd fermi && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
+
+fermi_contigs.fa: fermi/fmdef.p4.fa.gz
+	gunzip -c $^ > $@
+
+#*************************Abyss***********************
+abyss/abyssk47-contigs.fa: $(sam2fq_pre)_pe.fq
+	mkdir -p abyss
+	cd abyss && abyss-pe k=47 name='abyssk47' in='../$^' np=16 2> $(log_file)
+
+abyss_contigs.fa: abyss/abyssk47-contigs.fa
+	ln -s $^ $@
+
+#*************************Filter low size contigs*****************************
+#Keep only contigs greater than 750bp
+raymeta_contigs_1k.fa fermi_contigs_1k.fa abyss_contigs_1k.fa: %_contigs_1k.fa : %_contigs.fa
+	seqtk seq -L 750 $^ > $@ 2> $(log_file)
+
+#*************************Taxonomy analysis**********************************
+
+#*************************Kraken - Salzberg**************************
+#Other flags: --fastq-input
+kraken_raymeta.out kraken_fermi.out kraken_abyss.out: kraken_%.out : %_contigs_1k.fa
+	@echo -e "\nClassifying $* contigs with Kraken\n\n" > $(log_file)
+	kraken --db $(kraken_db) --threads $(threads) $^ > $@ 2> $(log_file)
+
+kraken_raymeta.report kraken_fermi.report kraken_abyss.report: kraken_%.report : kraken_%.out
+	@echo -e "\nCreating Kraken report for $* \n\n" > $(log_file)
+	kraken-report --db $(kraken_db) $^ > $@ 2> $(log_file)
+
+#************************Frag Gene Scan **********************************
+#Contig analysis
+raymeta_fgs.faa fermi_fgs.faa abyss_fgs.faa: %_fgs.faa : %_contigs_1k.fa
+	$(FragGeneScan_folder)/run_FragGeneScan.pl -genome=$^ -out=$*_fgs -complete=0 -train=illumina_10 2> $(log_file)
+
+#All filtered reads analysis
+#Convert fq to fa
+$(sam2fq_pre)_%.fa: $(sam2fq_pre)_%.fq
+	seqtk seq -A $^ > $@ 2> $(log_file)
+	#sed -n '1~4s/^@/>/p;2~4p' $^
+
+reads_pe_fgs.faa reads_se_fgs.faa: reads_%_fgs.faa : $(sam2fq_pre)_%.fa
+	$(FragGeneScan_bin) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10 2> $(log_file)
+
+#*************************phmmer**************************
+#Optional --domtblout $(basename $@).dom
+#Contigs
+raymeta_fgs_phmmer.tbl fermi_fgs_phmmer.tbl abyss_fgs_phmmer.tbl reads_pe_fgs_phmmer.tbl reads_se_fgs_phmmer.tbl: %_fgs_phmmer.tbl : %_fgs.faa $(swissprot_fasta)
+	phmmer --cpu $(threads) --noali --tblout $@ $^ >/dev/null 2> $(log_file)
+
+#************************Blast+*****************************
+#Create index from RefSeq virus
+refseq_virus: $(refseq_virus_fasta)
+	mkdir -p $@
+	cd $@ && makeblastdb -dbtype nucl -out $@ -title $@ -parse_seqids -taxid_map /labcommon/db/taxdb/gi_taxid_nucl.dmp -in $^
+
+#Blastn against refseq virus
+raymeta_blastn_vir.xml fermi_blastn_vir.xml abyss_blastn_vir.xml: %_blastn_vir.xml: %_contigs_1k.fa | refseq_virus
+	blastn -task blastn $(blast_params) $(blastn_params) -query $^ -db refseq_virus/refseq_virus > $@
+
+reads_pe_blastn_vir.xml reads_se_blastn_vir.xml: reads_%_blastn_vir.xml: $(sam2fq_pre)_%.fa | refseq_virus
+	blastn -task blastn $(blast_params) $(blastn_params) -query $^ -db refseq_virus/refseq_virus > $@
+
+#Blastx filtered contigs
+#Uses differnt genetic code
+raymeta_blastx.xml fermi_blastx.xml abyss_blastx.xml: %_blastx.xml : %_contigs_1k.fa
+	blastx -query $< -db $(blastdb_folder)/nr/swissprot -query_genetic_code 11 -out $@ $(blast_params) 2> $(log_file)
+
+#Blastp fgs proteins
+#Reads and contigs , singletons only pending
+raymeta_fgs_blastp.xml fermi_fgs_blastp.xml abyss_fgs_blastp.xml reads_pe_fgs_blastp.xml reads_se_fgs_blastp.xml: %_fgs_blastp.xml: %_fgs.faa
+	blastp $(blast_params) -db $(blastdb_folder)/nr/swissprot -query $< -out $@  2> $(log_file)
+
+.PHONY :clean
+clean:
+	-rm *.fq.gz *.sam *.log $(output_basename)_*
+	-rm -r raymeta/ fermi/ abyss/
