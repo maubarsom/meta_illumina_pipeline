@@ -19,15 +19,18 @@
 
 SHELL := /bin/bash
 
-input_files := $(wildcard reads/*.fastq.gz) $(wildcard reads/*.fq.gz) $(wildcard reads/*.fq) $(wildcard reads/*.fastq)
-export sample_name :=
-
-ifneq $(words $(input_files)) 2
-$(error Read files have not been detected)
-endif
+#Required variables
 
 ifndef sample_name
 $(error Variable sample_name not set.)
+endif
+
+export sample_name
+
+input_files := $(wildcard reads/*.fastq.gz) $(wildcard reads/*.fq.gz) $(wildcard reads/*.fq) $(wildcard reads/*.fastq)
+
+ifneq "$(words $(input_files))" "2"
+$(error Invalid number of paired-end read files in reads folder)
 endif
 
 #Run params
@@ -49,8 +52,8 @@ megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
 blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
 
 #Logging info
-log_name := $(sample_name)_$(shell date +%s).log
-log_file := >( tee -a $(log_name) >&2 )
+export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log
+export log_file := >( tee -a $(log_name) >&2 )
 
 #Prefixes for output files
 qf_prefix := $(sample_name)_q20h
@@ -66,25 +69,36 @@ phmmer_files := raymeta_fgs_phmmer.tbl fermi_fgs_phmmer.tbl abyss_fgs_phmmer.tbl
 blastp_out := raymeta_fgs_blastp.xml fermi_fgs_blastp.xml abyss_fgs_blastp.xml reads_pe_fgs_blastp.xml reads_se_fgs_blastp.xml
 blastx_out := raymeta_blastx.xml fermi_blastx.xml abyss_blastx.xml
 
+#Avoid the parallel execution of rules in this makefile
+.NOTPARALLEL:
+
+.PHONY: all raw_qc qf_qc quality_filtering contamination_rm
+
+all: raw_qc qf_qc contamination_rm
+
 #QC raw reads
 raw_qc: $(input_files)
-	mkdir -p raw_qc
-	cp scripts/qc.mak raw_qc/
-	cd raw_qc && $(MAKE) -f qc.mak read_folder=../reads/
+	mkdir -p $@
+	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@/; fi
+	cd raw_qc && $(MAKE) -f qc.mak read_folder=../reads/ step=raw
 
 #Quality filtering
 quality_filtering: $(input_files)
 	mkdir -p $@
-	cp scripts/quality_filtering.mak quality_filtering/
-	cd $@ && $(MAKE) -f quality_filtering.mak
+	if [ ! -r quality_filtering/quality_filtering.mak ]; then cp scripts/quality_filtering.mak $@/; fi
+	cd $@ && $(MAKE) -f quality_filtering.mak read_folder=../reads/
 
 #QC Quality filtering
-qf_qc:
+qf_qc: quality_filtering
 	mkdir -p $@
-	cp scripts/qc.mak $@/
-	cd $@ && $(MAKE) -f qc.mak read_folder=../quality_filtering/
+	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@; fi
+	cd $@ && $(MAKE) -f qc.mak read_folder=../quality_filtering/ step=qf
 
 #Contamination removal (human)
+contamination_rm: quality_filtering
+	mkdir -p $@
+	if [ ! -r $@/contamination_rm.mak ]; then cp scripts/contamination_rm.mak $@; fi
+	cd $@ && $(MAKE) -f contamination_rm.mak read_folder=../quality_filtering/ step=rmcont
 
 #Assembly step
 

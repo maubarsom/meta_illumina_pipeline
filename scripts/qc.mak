@@ -26,34 +26,34 @@ SHELL := /bin/bash
 # 3) read_folder
 
 ifndef sample_name
-$(error Variable 'basename' is not defined)
+$(error Variable 'sample_name' is not defined)
 endif
 
 ifndef step
 $(error Variable 'step' is not defined)
 endif
 
+ifndef read_folder
+$(warning Variable 'read_folder' will be assumed to be "./")
 read_folder := ./
-
-ifeq $(read_folder) "./"
-	$(warning Variable 'read_folder' has been assumed to be "./")
 endif
 
 #Outfile
 OUT_PREFIX:=$(sample_name)_$(step)
 
-fastq_suffix:= .fastq .fastq.gz .fq .fq.gz
-fastqc_suffix = .fastqc.zip fastqc.zip fq_fastqc.zip fq_fastqc.zip
-
 #Reads
-R1:= $(wildcard $(read_folder)/*R1*.  $(read_folder)/*_1.)
+R1:= $(wildcard $(read_folder)/*R1*.f*q.gz  $(read_folder)/*_1.f*q.gz)
+R2:= $(wildcard $(read_folder)/*R2*.f*q.gz  $(read_folder)/*_2.f*q.gz)
 
-R2:= $(wildcard $(read_folder)/*R2*.fastq.gz $(read_folder)/*R2*.fq.gz )
-R2+= $(wildcard $(read_folder)/*_2.fastq.gz $(read_folder)/*_2.fq.gz)
-
-ifneq ($(words $(R1)) $(words $(R2)),1 1)
-	$(error More than one R1 or R2)
+ifneq ($(words $(R1) $(R2)),2)
+$(error More than one R1 or R2 $(words $(R1) $(R2)))
 endif
+
+#Hack to decode target fastqc depending on the file extension of the reads f[ast]q[.gz]
+fq2fastqc = $(patsubst %.fq,%.fq_fastqc.zip,$(patsubst %.fastq,%_fastqc.zip,$(1)))
+gz_filtered_reads := $(notdir $(basename $(filter %.gz,$(R1) $(R2))) $(filter-out %.gz,$(R1) $(R2)))
+fastqc_targets := $(call fq2fastqc,$(gz_filtered_reads))
+$(info $(fastqc_targets))
 
 #Logging
 log_name := $(CURDIR)/qc_$(step)_$(shell date +%s).log
@@ -68,7 +68,7 @@ threads := 16
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-all: $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf $(patsubst %.fastq.gz,%_fastqc.zip,$(R1) $(R2))
+all: $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf $(fastqc_targets)
 
 #*************************************************************************
 #Import helper scripts - Check paths are ok
@@ -79,14 +79,20 @@ plot_kmer_histogram.R:
 #*************************************************************************
 #FASTQC
 #*************************************************************************
-#@TODO Check if this thing actually works
-%_fastqc.zip: %.fastq.gz
-%_fastqc.zip: %.fastq
-%.fq_fastqc.zip: %.fq.gz
-%.fq_fastqc.zip: %.fq
 
-%_fastqc.zip %.fq_fastqc.zip:
-	fastqc --noextract -k 10 $^ 2>> $(log_file)
+FASTQC_RECIPE = fastqc --noextract -k 10 -o ./ $^ 2>> $(log_file)
+
+%_fastqc.zip: $(read_folder)/%.fastq.gz
+	$(FASTQC_RECIPE)
+
+%_fastqc.zip: $(read_folder)/%.fastq
+	$(FASTQC_RECIPE)
+
+%.fq_fastqc.zip: $(read_folder)/%.fq.gz
+	$(FASTQC_RECIPE)
+
+%.fq_fastqc.zip: $(read_folder)/%.fq
+	$(FASTQC_RECIPE)
 
 #*************************************************************************
 #SGA PREQC
