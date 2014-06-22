@@ -59,22 +59,12 @@ sga_ec_kmer := 41
 sga_cov_filter := 2
 
 #Binary paths
-TRIMMOMATIC_BIN := java -jar /labcommon/tools/Trimmomatic-0.32/trimmomatic-0.32.jar
 NESONI_BIN := nesoni
+CUTADAPT_BIN := cutadapt
 SGA_BIN := sga
 
-#Output basenames
-nesoni_1 := nesoni_q20hL75
-nesoni_2 := nesoni_alt
-trimmy_1 := trimmy
-sga_1:= sga
-
-nesoni_trimmy := nesoni_def_trimmy
-nesoni_prinseq := nesoni_def_prinseq
-
 #Output name generators (notice the = instead of := to set the appropriate directory)
-nesoni_out_prefix = $(dir $@)$(sample_name)
-trimmomatic_out = $(addprefix, $(dir $@)$(sample_name)_ , $(addsuffix .fq.gz R1 R1_single R2 R2_single ))
+nesoni_out_prefix = $(dir $@)$*
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -92,29 +82,23 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #*************************************************************************
 #Calls to trimmers
 #*************************************************************************
-nesoni_qf/%_R1.fq.gz nesoni_qf/%_R2.fq.gz nesoni_qf/%_single.fq.gz: $(R1) $(R2)
+1_cutadapt/$(sample_name)_R1.fq.gz: $(R1)
 	mkdir -p $(dir $@)
-	$(NESONI_BIN) clip --homopolymers yes --quality 20 --length 75 --out-separate yes \
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -q 20 -o $@ $^ >&2 2>> $(log_file)
+
+
+1_cutadapt/$(sample_name)_R2.fq.gz: $(R2)
+	mkdir -p $(dir $@)
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT -q 20 -o $@ $^ >&2 2>>$(log_file)
+
+#You have to specify quality is phred33 because with short fragments nesoni fails
+2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_single.fq.gz: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
+	mkdir -p $(dir $@)
+	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 --out-separate yes \
 		$(nesoni_out_prefix) pairs: $^ 2>> $(log_file)
 
-nesoni_alt/%_R1.fq.gz nesoni_alt/%_R2.fq.gz nesoni_alt/%_single.fq.gz: $(R1) $(R2)
+3_prinseq/%_R1.fq 3_prinseq/%_R2.fq: 2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz
 	mkdir -p $(dir $@)
-	$(NESONI_BIN) clip --match 15 --max-errors 2 --homopolymers yes --quality 20 --length 75 \
-		--out-separate yes $(nesoni_out_prefix) pairs: $^ 2>> $(log_file)
-
-trimmy/$(sample_name)_R%.fq.gz: $(R1) $(R2)
-	mkdir -p $(dir $@)
-	$(TRIMMOMATIC_BIN) PE -threads 16 -phred33 -trimlog trimmomatic.log $^ $(trimmomatic_out) \
-		ILLUMINACLIP:$(adaptor_file):2:30:10 MINLEN:75 2>> $(log_file)
-
-#*************************************************************************
-#Mixed quality filtering
-#*************************************************************************
-$(nesoni_trimmy)/R%.fq.gz: $(nesoni_1)/R1.fq.gz $(nesoni_1)/R2.fq.gz | $(nesoni_trimmy)
-	$(TRIMMOMATIC_BIN) PE -threads 16 -phred33 -trimlog trimmomatic.log $^ $(trimmomatic_out) \
-		ILLUMINACLIP:$(adaptor_file):2:30:10 MINLEN:75 2>> $(log_file)
-
-$(nesoni_prinseq)/cosillo.fq: $(R1) $(R2) | $(nesoni_prinseq)
 	prinseq-lite.pl -fastq $(R1) -fastq2 $(R2) -params prinseq_params.txt 2>> $(log_file)
 
 #*************************************************************************
