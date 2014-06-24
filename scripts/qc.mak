@@ -68,8 +68,11 @@ threads := 16
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-all: $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf $(fastqc_targets)
+.PHONY: all fastqc
 
+all: $(OUT_PREFIX)_stats.txt fastqc $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf
+
+fastqc: $(fastqc_targets)
 #*************************************************************************
 #Import helper scripts - Check paths are ok
 #*************************************************************************
@@ -125,6 +128,12 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 
 %_k17.hist.pdf: %_k17.hist | plot_kmer_histogram.R
 	Rscript plot_kmer_histogram.R $^ $@
+
+#*************************************************************************
+#PRINSEQ
+#*************************************************************************
+%_stats.txt: $(R1) $(R2)
+	prinseq-lite.pl -fastq $< -fastq2 $(word 2,$^) -stats_all > $@
 
 #*************************************************************************
 #CLEANING RULES
