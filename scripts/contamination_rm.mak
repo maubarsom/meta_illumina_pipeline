@@ -28,32 +28,43 @@ ifndef read_folder
 $(error Variable 'read_folder' is not defined)
 endif
 
-ifndef qf_prefix
-qf_prefix := $(sample_name)_qf
-$(info 'qf_prefix' is assumed to be $(qf_prefix))
+ifndef prev_steps
+prev_steps := qf
+$(info 'prev_steps' is assumed to be $(prev_steps))
 endif
 
+ifndef step
+step:=rmcont
+$(warning Variable 'step' has been defined as '$(step)')
+endif
+
+**************************************************
+
+#Input and Output file prefixes
+IN_PREFIX := $(sample_name)_$(prev_steps)
+OUT_PREFIX:= $(IN_PREFIX)_rmcont
+
+#Parameters
 threads := 16
+
+#Databases
 stampy_grch38 := /labcommon/db/stampy/GRCh38/grch38
 stampy_grch37 := /labcommon/db/stampy/GRCh37.p13/grch37_p13
 bwa_grch37 := /labcommon/db/bwa/GRCh37.p13/grch37_p13
 
 #Input files
-R1 := $(read_folder)/$(qf_prefix)_R1.fq.gz
-R2 := $(read_folder)/$(qf_prefix)_R2.fq.gz
-singles := $(read_folder)/$(qf_prefix)_single.fq.gz
-
-#Output files
-OUT_PREFIX:= $(sample_name)_qf_rmcont
+R1 := $(read_folder)/$(IN_PREFIX)_R1.fq.gz
+R2 := $(read_folder)/$(IN_PREFIX)_R2.fq.gz
+singles := $(read_folder)/$(IN_PREFIX)_single.fq.gz
 
 #Log file
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
 
 #Intermediate file names
-bwa_pre := $(qf_prefix)_bwa
-stampy_pre := $(qf_prefix)_stampy
-bwastampy_pre := $(qf_prefix)_bwastampy
+bwa_pre := $(IN_PREFIX)_bwa
+stampy_pre := $(IN_PREFIX)_stampy
+bwastampy_pre := $(IN_PREFIX)_bwastampy
 
 sortsam_pre := $(bwastampy_pre)_sort
 filtersam_pre := $(sortsam_pre)_filter

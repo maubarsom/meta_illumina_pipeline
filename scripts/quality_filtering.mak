@@ -29,6 +29,11 @@ $(warning Variable 'read_folder' will be assumed to be "./")
 read_folder := ./
 endif
 
+ifndef step
+$(warning Variable 'step' has been defined as 'qf')
+step:=qf
+endif
+
 ifndef STRATEGY
 $(info Default quality filtering strategy is cutadapt+nesoni+prinseq-lite)
 STRATEGY=3_prinseq
@@ -44,8 +49,6 @@ R2 := $(wildcard $(read_folder)/*R2*.f*q.gz  $(read_folder)/*_2.f*q.gz)
 ifneq ($(words $(R1) $(R2)),2)
 $(error More than one R1 or R2 $(words $(R1) $(R2)))
 endif
-
-OUT_PREFIX := $(sample_name)_qf
 
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log

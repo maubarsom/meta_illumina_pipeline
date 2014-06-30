@@ -72,7 +72,7 @@ blastx_out := raymeta_blastx.xml fermi_blastx.xml abyss_blastx.xml
 #Avoid the parallel execution of rules in this makefile
 .NOTPARALLEL:
 
-.PHONY: all raw_qc qf_qc quality_filtering contamination_rm
+.PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly
 
 all: raw_qc qf_qc contamination_rm
 
@@ -98,10 +98,18 @@ qf_qc: quality_filtering
 contamination_rm: quality_filtering
 	mkdir -p $@
 	if [ ! -r $@/contamination_rm.mak ]; then cp scripts/contamination_rm.mak $@; fi
-	cd $@ && $(MAKE) -f contamination_rm.mak read_folder=../quality_filtering/ step=rmcont
+	cd $@ && $(MAKE) -f contamination_rm.mak read_folder=../quality_filtering/ step=rmcont prev_steps=qf
 
 #Assembly step
+assembly: contamination_rm
+	mkdir -p $@
+	if [ ! -r $@/assembly.mak ]; then cp scripts/assembly.mak $@; fi
+	cd $@ && $(MAKE) -f assembly.mak read_folder=../contamination_rm/ step=asm prev_steps=qf_rmcont
 
 #Post-Assembly - Separate singletons
 
 #Taxonomic / Functional Annotation
+tax_assign: assembly
+	mkdir -p $@
+	if [ ! -r $@/assembly.mak ]; then cp scripts/assembly.mak $@; fi
+	cd $@ && $(MAKE) -f assembly.mak read_folder=../contamination_rm/ step=asm prev_steps=qf_rmcont

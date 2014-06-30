@@ -1,4 +1,4 @@
-# Raw reads quality filtering pipeline
+# Assembly strategies pipeline
 
 # Author: Mauricio Barrientos-Somarribas
 # Email:  mauricio.barrientos@ki.se
@@ -24,24 +24,28 @@ ifndef sample_name
 $(error Variable 'sample_name' is not defined)
 endif
 
-# ifndef read_folder
-# $(warning Variable 'read_folder' will be assumed to be "./")
-# read_folder := ./
-# endif
+ifndef read_folder
+$(warning Variable 'read_folder' will be assumed to be "./")
+read_folder := ./
+endif
 
-# ifndef STRATEGY
-# $(info Default quality filtering strategy is cutadapt+nesoni+prinseq-lite)
-# STRATEGY=3_prinseq
-# endif
+ifndef prev_steps
+prev_steps := qf_rmcont
+$(info 'prev_steps' is assumed to be $(prev_steps))
+endif
 
-#Outfile
-OUT_PREFIX := $(sample_name)_$(step)
+ifndef step
+step:= asm
+$(warning Variable 'step' has been defined as '$(step)')
+endif
+
+#Input and Output file prefixes
+IN_PREFIX := $(sample_name)_$(prev_steps)
+OUT_PREFIX:= $(IN_PREFIX)_asm
 
 #Reads
-INPUT_PAIRED_END := $(read_folder)/$(sample_name)_qf_rmcont_pe.fq
-INPUT_SINGLE_END := $(read_folder)/$(sample_name)_qf_rmcont_se.fq
-
-OUT_PREFIX := $(sample_name)_qf
+INPUT_PAIRED_END := $(read_folder)/$(IN_PREFIX)_pe.fq
+INPUT_SINGLE_END := $(read_folder)/$(IN_PREFIX)_se.fq
 
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
@@ -86,7 +90,7 @@ raymeta/Contigs.fasta: $(INPUT_PAIRED_END)
 	@echo -e "\nAssembling reads with Ray Meta\n\n" > $(log_file)
 	mpiexec -n 16 Ray Meta -i $^ -o $(dir $@) 2> $(log_file)
 
-raymeta_contigs.fa: raymeta/Contigs.fasta
+$(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
 	ln -s $^ $@
 
 #*************************************************************************
@@ -99,7 +103,7 @@ fermi/fmdef.p4.fa.gz: $(INPUT_PAIRED_END)
 	cd fermi && run-fermi.pl -t $(threads) -c ../$^ > assembly.mak 2> $(log_file)
 	cd fermi && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
 
-fermi_contigs.fa: fermi/fmdef.p4.fa.gz
+$(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p4.fa.gz
 	gunzip -c $^ > $@
 
 #*************************************************************************
@@ -109,7 +113,7 @@ abyss/abyssk47-contigs.fa: $(INPUT_PAIRED_END)
 	mkdir -p abyss
 	cd abyss && abyss-pe k=47 name='abyssk47' in='../$^' np=16 2> $(log_file)
 
-abyss_contigs.fa: abyss/abyssk47-contigs.fa
+$(OUT_PREFIX)_abyss_contigs.fa: abyss/abyssk47-contigs.fa
 	ln -s $^ $@
 
 #*************************************************************************
@@ -147,7 +151,7 @@ sga/$(sample_name)_sga.fq: $(INPUT_PAIRED_END)
 %-contigs.fa: %.ec.filter.pass.asqg.gz
 	$(SGA_BIN) assemble -m $(sga_assemble_overlap) --min-branch-length $(TRIM_LENGTH) -o $* $^ 2>> $(log_file)
 
-sga_contigs.fa: sga/$(sample_name)-contigs.fa
+$(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 	ln $^ $@
 
 #*************************************************************************
