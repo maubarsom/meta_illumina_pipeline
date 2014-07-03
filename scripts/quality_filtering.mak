@@ -61,7 +61,7 @@ threads:=16
 #out_format: fasta 1, fastq 3
 #Remove duplicates (derep) : 1=exact dup, 2= 5' dup 3= 3' dup 4= rev comp exact dup
 #Low complexity filters(lc_method): dust, entropy
-prinseq_params:= -verbose -out_format 3 -log prinseq.log -min_len 75 -derep 1 -lc_method dust -lc_threshold 35
+prinseq_params:= -verbose -out_format 3 -log prinseq.log -min_len 75 -derep 1 -lc_method dust -lc_threshold 39
 
 #SGA parameters
 sga_ec_kmer := 41
@@ -98,7 +98,7 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 
 1_cutadapt/$(sample_name)_R2.fq.gz: $(R2)
 	mkdir -p $(dir $@)
-	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT -q 20 -o $@ $^ >> $(log_file)
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT -q 20 -o $@ $^ >>$(log_file)
 
 #You have to specify quality is phred33 because with cutadapt clipped fragments nesoni fails to detect encoding
 2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_single.fq.gz: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
@@ -118,11 +118,12 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	mv $(prinseq_out_prefix)_1.fastq $(prinseq_out_prefix)_R1.fq && gzip $(prinseq_out_prefix)_R1.fq
 	mv $(prinseq_out_prefix)_2.fastq $(prinseq_out_prefix)_R2.fq && gzip $(prinseq_out_prefix)_R2.fq
 
-3_prinseq/%_single.fq.gz: 2_nesoni/%_single.fq
+3_prinseq/%_single.fastq: 2_nesoni/%_single.fq
 	mkdir -p $(dir $@)
 	prinseq-lite.pl -fastq $^ $(prinseq_params) -out_good $(prinseq_out_prefix)_single -out_bad $(prinseq_out_prefix)_single_BAD 2>> $(log_file)
-	mv $(prinseq_out_prefix)_single.fastq $(prinseq_out_prefix)_single.fq && gzip $(prinseq_out_prefix)_single.fq
 
+3_prinseq/%_single.fq.gz: 3_prinseq/%_single.fastq 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq
+	cat $^ | gzip > $@
 #*************************************************************************
 #SGA quality filtering steps
 #*************************************************************************
@@ -152,6 +153,5 @@ sga_qc/$(sga_1).k$(sga_ec_kmer).ec.filter.pass.fa: $(sga_1).k$(sga_ec_kmer).ec.f
 .PHONY: clean
 clean:
 	-rm *.fq.gz
-	-rm *.fq_fastqc.zip #Fastqc
 	-rm *.log #Makefile log
 	-rm *.log.txt #Nesoni log
