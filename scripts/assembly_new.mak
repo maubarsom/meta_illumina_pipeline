@@ -31,7 +31,7 @@ endif
 
 ifndef prev_steps
 prev_steps := qf_rmcont
-$(info 'prev_steps' is assumed to be $(prev_steps))
+$(warning 'prev_steps' is assumed to be $(prev_steps))
 endif
 
 ifndef step
@@ -47,6 +47,7 @@ OUT_PREFIX:= $(IN_PREFIX)_$(step)
 INPUT_PAIRED_END := $(read_folder)/$(IN_PREFIX)_pe.fq
 INPUT_SINGLE_END := $(read_folder)/$(IN_PREFIX)_se.fq
 
+
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
@@ -54,11 +55,8 @@ log_file := >( tee -a $(log_name) >&2 )
 #Run params
 threads:=16
 
-#Prinseq params
-#out_format: fasta 1, fastq 3
-#Remove duplicates (derep) : 1=exact dup, 2= 5' dup 3= 3' dup 4= rev comp exact dup
-#Low complexity filters(lc_method): dust, entropy
-prinseq_params:= -verbose -out_format 3 -log prinseq.log -min_len 75 -derep 1 -lc_method dust -lc_threshold 35
+#Abyss parameters
+abyss_kmer:= 30
 
 #SGA parameters
 sga_ec_kmer := 41
@@ -67,8 +65,13 @@ sga_min_overlap := 200
 sga_assemble_overlap := 111
 TRIM_LENGTH := 400
 
+#Masurca parameters
+masurca_kmer := 21
+masurca_pe_stats := 400 80
+masurca_se_stats := 250 50
 #Binary paths
 SGA_BIN := sga
+MASURCA_BIN:=/labcommon/tools/MaSuRCA-2.2.1/bin
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -78,7 +81,7 @@ SGA_BIN := sga
 
 .PHONY: all
 
-all: $(OUT_PREFIX)_raymeta_ctgs_filt.fa $(OUT_PREFIX)_fermi_ctgs_filt.fa $(OUT_PREFIX)_abyss_ctgs_filt.fa $(OUT_PREFIX)_sga_ctgs_filt.fa
+all: $(OUT_PREFIX)_raymeta_ctgs_filt.fa $(OUT_PREFIX)_fermi_ctgs_filt.fa $(OUT_PREFIX)_sga_ctgs_filt.fa $(OUT_PREFIX)_masurca_ctgs_filt.fa
 
 $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	ln -s $^ $@
@@ -109,13 +112,42 @@ $(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p4.fa.gz
 #*************************************************************************
 #Abyss
 #*************************************************************************
-abyss/abyssk47-contigs.fa: $(INPUT_PAIRED_END)
+abyss/abyssk$(abyss_kmer)-contigs.fa: $(INPUT_PAIRED_END)
 	mkdir -p abyss
-	cd abyss && abyss-pe k=47 name='abyssk47' in='../$^' np=16 2> $(log_file)
+	cd abyss && abyss-pe k=$(abyss_kmer) name='abyssk$(abyss_kmer)' in='../$^' np=16 2> $(log_file)
 
-$(OUT_PREFIX)_abyss_contigs.fa: abyss/abyssk47-contigs.fa
+$(OUT_PREFIX)_abyss_contigs.fa: abyss/abyssk$(abyss_kmer)-contigs.fa
 	ln -s $^ $@
 
+#*************************************************************************
+#MaSuRCA
+#*************************************************************************
+paired_ends/%_R1.fq : $(read_folder)/%_pe.fq
+	mkdir -p $(dir $@)
+	seqtk seq -1 $^ > $(firstword $@)
+
+paired_ends/%_R2.fq: $(read_folder)/%_pe.fq
+	mkdir -p $(dir $@)
+	seqtk seq -2 $^ > $(lastword $@)
+
+masurca/masurca.cfg: paired_ends/$(IN_PREFIX)_R1.fq paired_ends/$(IN_PREFIX)_R2.fq $(INPUT_SINGLE_END)
+	mkdir -p $(dir $@)
+	masurca -g masurca.cfg.1
+	sed -e "/^PE=/cPE=pe $(masurca_pe_stats)  $(addprefix ../,$(wordlist 1,2,$^))" \
+		-e "/^JUMP/c\PE=se $(masurca_se_stats)  ../$(lastword $^)" \
+		-e "/^OTHER/d" \
+		-e "/^USE_LINKING_MATES/s/0/1/" \
+		-e  "/^GRAPH_KMER_SIZE/s/auto/$(masurca_kmer)/" \
+		-e  "/^NUM_THREADS/s/\$$NUM_THREADS/$(threads)/" \
+		masurca.cfg.1 > $@
+		rm masurca.cfg.1
+
+masurca/CA/10-gapclose/genome.ctg.fasta: masurca/masurca.cfg
+	cd $(dir $@) && masurca $(notdir $<)
+	cd $(dir $@) && bash assemble.sh
+
+$(OUT_PREFIX)_masurca_contigs.fa: masurca/CA/10-gapclose/genome.ctg.fasta
+	ln -s $^ $@
 #*************************************************************************
 #SGA quality filtering steps
 #*************************************************************************
@@ -156,15 +188,15 @@ $(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 	ln $^ $@
 
 #*************************************************************************
-#Extract contigs > 550 bp
+#Extract contigs > 500 bp
 #*************************************************************************
-#Keep only contigs greater than 750bp
 %_ctgs_filt.fa : %_contigs.fa
 	seqtk seq -L 500 $^ > $@ 2> $(log_file)
 
 .PHONY: clean
 clean:
-	-rm *.fq.gz
-	-rm *.fq_fastqc.zip #Fastqc
-	-rm *.log #Makefile log
-	-rm *.log.txt #Nesoni log
+	-rm -r sga/
+	-rm -r abyss/
+	-rm -r raymeta/
+	-rm -r fermi
+	-rm *.contigs.fa *.ctgs_filt.fa
