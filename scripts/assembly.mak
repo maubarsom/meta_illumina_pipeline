@@ -47,13 +47,16 @@ OUT_PREFIX:= $(IN_PREFIX)_$(step)
 INPUT_PAIRED_END := $(read_folder)/$(IN_PREFIX)_pe.fq
 INPUT_SINGLE_END := $(read_folder)/$(IN_PREFIX)_se.fq
 
-
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
 
 #Run params
 threads:=16
+ASSEMBLERS := raymeta fermi sga masurca abyss
+
+#Creates a OUT_PREFIX_assembler_ctgs_filt.fa for each assembler
+OUT_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix $(OUT_PREFIX)_,$(ASSEMBLERS)))
 
 #Abyss parameters
 abyss_kmer:= 30
@@ -69,6 +72,7 @@ TRIM_LENGTH := 400
 masurca_kmer := 21
 masurca_pe_stats := 400 80
 masurca_se_stats := 250 50
+
 #Binary paths
 SGA_BIN := sga
 MASURCA_BIN:=/labcommon/tools/MaSuRCA-2.2.1/bin
@@ -81,7 +85,7 @@ MASURCA_BIN:=/labcommon/tools/MaSuRCA-2.2.1/bin
 
 .PHONY: all
 
-all: $(OUT_PREFIX)_raymeta_ctgs_filt.fa $(OUT_PREFIX)_fermi_ctgs_filt.fa $(OUT_PREFIX)_sga_ctgs_filt.fa $(OUT_PREFIX)_masurca_ctgs_filt.fa
+all: $(OUT_FILES)
 
 $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	ln -s $^ $@
@@ -143,8 +147,8 @@ masurca/masurca.cfg: paired_ends/$(IN_PREFIX)_R1.fq paired_ends/$(IN_PREFIX)_R2.
 		rm masurca.cfg.1
 
 masurca/CA/10-gapclose/genome.ctg.fasta: masurca/masurca.cfg
-	cd $(dir $@) && masurca $(notdir $<)
-	cd $(dir $@) && bash assemble.sh
+	cd masurca && masurca $(notdir $<)
+	cd masurca && bash assemble.sh
 
 $(OUT_PREFIX)_masurca_contigs.fa: masurca/CA/10-gapclose/genome.ctg.fasta
 	ln -s $^ $@
@@ -198,5 +202,6 @@ clean:
 	-rm -r sga/
 	-rm -r abyss/
 	-rm -r raymeta/
-	-rm -r fermi
+	-rm -r fermi/
+	-rm -r masurca/
 	-rm *.contigs.fa *.ctgs_filt.fa

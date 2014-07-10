@@ -133,7 +133,10 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 #PRINSEQ
 #*************************************************************************
 %_stats.txt: $(R1) $(R2)
-	prinseq-lite.pl -fastq $< -fastq2 $(word 2,$^) -stats_all > $@
+	gunzip -c $< > tmp_R1.fq
+	gunzip -c $(word 2,$^) > tmp_R2.fq
+	prinseq-lite.pl -fastq tmp_R1.fq -fastq2 tmp_R2.fq -stats_all > $@
+	rm tmp_R1.fq tmp_R2.fq
 
 #*************************************************************************
 #CLEANING RULES

@@ -45,8 +45,7 @@ endif
 #Run params
 threads:=16
 
-# ASSEMBLERS:= masurca raymeta fermi sga #abyss
-ASSEMBLERS:= masurca
+ASSEMBLERS := masurca raymeta fermi sga abyss
 
 #Input and Output file prefixes
 IN_PREFIX := $(sample_name)_$(prev_steps)
@@ -67,6 +66,7 @@ refseq_virus_faa := /labcommon/db/fasta/refseq_viral/viral.1.protein.faa
 swissprot_faa := /labcommon/db/fasta/uniprot_sprot.fasta
 tax_dmp_nucl := /labcommon/db/taxdb/gi_taxid_nucl.dmp
 tax_dmp_prot := /labcommon/db/taxdb/gi_taxid_prot.dmp
+blastdb_folder:=/labcommon/db/blastdb/
 
 #Blast parameters
 blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -show_gis
@@ -84,14 +84,14 @@ FGS_PATH:= /labcommon/tools/FragGeneScan1.18
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-.PHONY: all kraken_reports phmmer_vir
+.PHONY: all kraken_reports phmmer_vir phmmer_sprot blastn_vir blastp_vir blastp_sprot blastx_vir blastx_sprot
 
 # all: kraken_reports phmmer_out blastp_out blastx_out
-all: kraken_reports phmmer_vir phmmer_sprot blastn_vir blastp_vir blastp_sprot
+all: kraken_reports phmmer_vir phmmer_sprot blastn_vir blastp_vir blastp_sprot blastx_vir blastx_sprot
 
 #Outputs
 
-kraken_reports: $(call produce_outfiles,kraken/,kraken.report,$(ASSEMBLERS))
+kraken_reports: $(call produce_outfiles,kraken,kraken.report,$(ASSEMBLERS))
 
 phmmer_vir : $(call produce_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
 phmmer_sprot : $(call produce_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
@@ -175,11 +175,15 @@ blastx/%_blastx_sprot.xml : $(ctg_folder)/%_ctgs_filt.fa
 	mkdir -p $(dir $@)
 	blastx $(blast_params) -db $(blastdb_folder)/nr/swissprot -query $< -out $@ 2>> $(log_file)
 
-blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa
+blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa | refseq_virus_faa_blastdb
 	mkdir -p $(dir $@)
 	blastx $(blast_params) -db $|/$| -query $< -out $@ 2>> $(log_file)
 
 #BlastP the predicted ORF to swissprot
-blastp/%_fgs_blastp.xml: fgs/%_fgs.faa
+blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	blastp $(blast_params) -db $(blastdb_folder)/nr/swissprot -query $< -out $@ 2>> $(log_file)
+
+blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa | refseq_virus_faa_blastdb
+	mkdir -p $(dir $@)
+	blastp $(blast_params) -db $|/$| -query $< -out $@ 2>> $(log_file)

@@ -87,7 +87,7 @@ prinseq_out_prefix = $(dir $@)$*
 all: $(OUT_PREFIX)_R1.fq.gz $(OUT_PREFIX)_R2.fq.gz $(OUT_PREFIX)_single.fq.gz
 
 $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
-	ln -s $^ $@
+	ln -fs $^ $@
 
 #*************************************************************************
 #Calls to trimmers
@@ -117,6 +117,8 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	prinseq-lite.pl -fastq $< -fastq2 $(word 2,$^) $(prinseq_params) -out_good $(prinseq_out_prefix) -out_bad $(prinseq_out_prefix)_BAD 2>> $(log_file)
 	mv $(prinseq_out_prefix)_1.fastq $(prinseq_out_prefix)_R1.fq && gzip $(prinseq_out_prefix)_R1.fq
 	mv $(prinseq_out_prefix)_2.fastq $(prinseq_out_prefix)_R2.fq && gzip $(prinseq_out_prefix)_R2.fq
+	if [ ! -e $(prinseq_out_prefix)_1_singletons.fastq ]; then touch $(prinseq_out_prefix)_1_singletons.fastq; fi
+	if [ ! -e $(prinseq_out_prefix)_2_singletons.fastq ]; then touch $(prinseq_out_prefix)_2_singletons.fastq; fi
 
 3_prinseq/%_single.fastq: 2_nesoni/%_single.fq
 	mkdir -p $(dir $@)

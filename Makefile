@@ -27,7 +27,12 @@ endif
 
 export sample_name
 
-input_files := $(wildcard reads/*.fastq.gz) $(wildcard reads/*.fq.gz) $(wildcard reads/*.fq) $(wildcard reads/*.fastq)
+ifndef read_folder
+read_folder := reads/
+$(warning 'Read folder is assumed to be $(read_folder)')
+endif
+
+input_files := $(wildcard $(read_folder)/*.fastq.gz) $(wildcard $(read_folder)/*.fq.gz) $(wildcard $(read_folder)/*.fq) $(wildcard $(read_folder)/*.fastq)
 
 ifneq "$(words $(input_files))" "2"
 $(error Invalid number of paired-end read files in reads folder)
@@ -36,80 +41,51 @@ endif
 #Run params
 threads:=16
 
-#Databases
-db_path:=/labcommon/db
-bwa_hg_ref:= $(db_path)/iGenomes/Homo_Sapiens/Ensembl/GRCh37/Sequence/BWAIndex/genome.fa
-blastdb_folder:=$(db_path)/blastdb
-kraken_db:=$(db_path)/krakendb/kraken140311/
-swissprot_fasta:=$(db_path)/fasta/uniprot_sprot.fasta
-
-#Paths to binaries
-FragGeneScan_bin:=/labcommon/tools/FragGeneScan1.18/run_FragGeneScan.pl
-
-#Tool parameters
-blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -show_gis
-megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
-blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
-
 #Logging info
 export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log
 export log_file := >( tee -a $(log_name) >&2 )
-
-#Prefixes for output files
-qf_prefix := $(sample_name)_q20h
-bwa_pre := $(nesoni_pre)_grch37
-sortsam_pre := $(bwa_pre)_sort
-filtersam_pre := $(sortsam_pre)_filter
-sam2fq_pre := $(filtersam_pre)_sam2fq
-diginorm_pre:=$(sam2fq_pre)_dgnrm
-
-#Outputs
-kraken_reports:= kraken_raymeta.report kraken_fermi.report kraken_abyss.report
-phmmer_files := raymeta_fgs_phmmer.tbl fermi_fgs_phmmer.tbl abyss_fgs_phmmer.tbl
-blastp_out := raymeta_fgs_blastp.xml fermi_fgs_blastp.xml abyss_fgs_blastp.xml reads_pe_fgs_blastp.xml reads_se_fgs_blastp.xml
-blastx_out := raymeta_blastx.xml fermi_blastx.xml abyss_blastx.xml
 
 #Avoid the parallel execution of rules in this makefile
 .NOTPARALLEL:
 
 .PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly
 
-all: raw_qc qf_qc contamination_rm
+all: raw_qc qf_qc contamination_rm assembly tax_assign
 
 #QC raw reads
 raw_qc: $(input_files)
 	mkdir -p $@
 	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@/; fi
-	cd raw_qc && $(MAKE) -f qc.mak read_folder=../reads/ step=raw
+	cd raw_qc && $(MAKE) -rf qc.mak read_folder=../reads/ step=raw
 
 #Quality filtering
 quality_filtering: $(input_files)
 	mkdir -p $@
 	if [ ! -r quality_filtering/quality_filtering.mak ]; then cp scripts/quality_filtering.mak $@/; fi
-	cd $@ && $(MAKE) -f quality_filtering.mak read_folder=../reads/
+	cd $@ && $(MAKE) -rf quality_filtering.mak read_folder=../reads/ STRATEGY=3_prinseq
 
 #QC Quality filtering
 qf_qc: quality_filtering
 	mkdir -p $@
 	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@; fi
-	cd $@ && $(MAKE) -f qc.mak read_folder=../quality_filtering/ step=qf
+	cd $@ && $(MAKE) -rf qc.mak read_folder=../$^/ step=qf
 
 #Contamination removal (human)
 contamination_rm: quality_filtering
 	mkdir -p $@
 	if [ ! -r $@/contamination_rm.mak ]; then cp scripts/contamination_rm.mak $@; fi
-	cd $@ && $(MAKE) -f contamination_rm.mak read_folder=../quality_filtering/ step=rmcont prev_steps=qf
+	cd $@ && $(MAKE) -rf contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf STRATEGY=bwastampy
 
 #Assembly step
 assembly: contamination_rm
 	mkdir -p $@
 	if [ ! -r $@/assembly.mak ]; then cp scripts/assembly.mak $@; fi
-	cd $@ && $(MAKE) -f assembly.mak read_folder=../contamination_rm/ step=asm prev_steps=qf_rmcont
+	cd $@ && $(MAKE) -rf assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont
 
-#Post-Assembly - Separate singletons
+#Post-Assembly - Separate singletons?
 
 #Taxonomic / Functional Annotation
 tax_assign: assembly
 	mkdir -p $@
-	if [ ! -r $@/assembly.mak ]; then cp scripts/assembly.mak $@; fi
-	cd $@ && $(MAKE) -f assembly.mak read_folder=../contamination_rm/ step=asm prev_steps=qf_rmcont
+	if [ ! -r $@/tax_assign.mak ]; then cp scripts/tax_assign.mak $@; fi
+	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../human_rm ctg_folder=../$^/ step=tax prev_steps=qf_rmcont_asm
