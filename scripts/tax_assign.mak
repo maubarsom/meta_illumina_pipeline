@@ -32,9 +32,14 @@ ifndef ctg_folder
 $(error Variable 'ctg_folder' is not defined)
 endif
 
-ifndef prev_steps
-prev_steps := qf_rmcont_asm
-$(info 'prev_steps' is assumed to be $(prev_steps))
+ifndef read_steps
+read_steps := qf_rmcont
+$(info 'read_steps' is assumed to be $(read_steps))
+endif
+
+ifndef ctg_steps
+ctg_steps := qf_rmcont_asm
+$(info 'ctg_steps' is assumed to be $(ctg_steps))
 endif
 
 ifndef step
@@ -45,15 +50,16 @@ endif
 #Run params
 threads:=16
 
-ASSEMBLERS := masurca raymeta fermi sga abyss
+ASSEMBLERS := masurca raymeta fermi sga 
 
 #Input and Output file prefixes
-IN_PREFIX := $(sample_name)_$(prev_steps)
-OUT_PREFIX:= $(IN_PREFIX)_$(step)
+IN_CTG_PREFIX := $(sample_name)_$(ctg_steps)
+IN_READ_PREFIX := $(sample_name)_$(read_steps)
+OUT_PREFIX:= $(IN_CTG_PREFIX)_$(step)
 
 #Reads
-READS_PAIRED_END := $(read_folder)/$(IN_PREFIX)_pe.fq
-READS_SINGLE_END := $(read_folder)/$(IN_PREFIX)_se.fq
+READS_PAIRED_END := $(read_folder)/$(IN_READ_PREFIX)_pe.fq
+READS_SINGLE_END := $(read_folder)/$(IN_READ_PREFIX)_se.fq
 
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
@@ -73,7 +79,8 @@ blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -
 megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
 blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
 
-produce_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_PREFIX)_,$(3)))
+ctg_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_CTG_PREFIX)_,$(3)))
+read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 
 #Binary paths
 FGS_PATH:= /labcommon/tools/FragGeneScan1.18
@@ -92,25 +99,22 @@ all: blastn_nt blastx_nr
 
 #Outputs
 
-kraken_reports: $(call produce_outfiles,kraken,kraken.report,$(ASSEMBLERS))
+kraken_reports: $(call ctg_outfiles,kraken,kraken.report,$(ASSEMBLERS))
 
-phmmer_vir : $(call produce_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
-phmmer_sprot : $(call produce_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
+phmmer_vir : $(call ctg_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
+phmmer_sprot : $(call ctg_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
 
-blastn_nt : $(call produce_outfiles,blastn,blastn_nt.xml,$(ASSEMBLERS))
-blastn_vir : $(call produce_outfiles,blastn,blastn_refseqvir.xml,$(ASSEMBLERS))
-blastn_vir : $(call produce_outfiles,blastn,blastn_refseqvir.xml,pe se)
+blastn_nt : $(call ctg_outfiles,blastn,blastn_nt.xml,$(ASSEMBLERS))
+blastn_vir : $(call ctg_outfiles,blastn,blastn_refseqvir.xml,$(ASSEMBLERS))
+blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
 
-blastp_vir : $(call produce_outfiles,blastp,fgs_blastp_refseqvir.xml,$(ASSEMBLERS))
-blastp_sprot : $(call produce_outfiles,blastp,fgs_blastp_sprot.xml,$(ASSEMBLERS))
+blastp_vir : $(call ctg_outfiles,blastp,fgs_blastp_refseqvir.xml,$(ASSEMBLERS))
+blastp_sprot : $(call ctg_outfiles,blastp,fgs_blastp_sprot.xml,$(ASSEMBLERS))
 
-blastx_nr : $(call produce_outfiles,blastx,blastx_nr.xml,$(ASSEMBLERS))
-blastx_sprot : $(call produce_outfiles,blastx,blastx_sprot.xml,$(ASSEMBLERS))
-blastx_vir : $(call produce_outfiles,blastx,blastx_refseqvir.xml,$(ASSEMBLERS))
-blastx_vir : $(call produce_outfiles,blastx,blastx_refseqvir.xml,pe se)
-
-
-
+blastx_nr : $(call ctg_outfiles,blastx,blastx_nr.xml,$(ASSEMBLERS))
+blastx_sprot : $(call ctg_outfiles,blastx,blastx_sprot.xml,$(ASSEMBLERS))
+blastx_vir : $(call ctg_outfiles,blastx,blastx_refseqvir.xml,$(ASSEMBLERS))
+blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
 
 #*************************************************************************
 #Convert Reads from Fastq to Fasta
@@ -124,7 +128,7 @@ reads_fa/%.fa: $(read_folder)/%.fq
 #Call to Kraken - Salzberg
 #*************************************************************************
 #Other flags: --fastq-input
-kraken/$(IN_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_PREFIX)_%_ctgs_filt.fa
+kraken/$(IN_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%_ctgs_filt.fa
 	mkdir -p kraken
 	@echo -e "\nClassifying $* contigs with Kraken\n\n" > $(log_file)
 	kraken --db $(kraken_db) --threads $(threads) $^ > $@ 2>> $(log_file)

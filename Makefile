@@ -38,12 +38,8 @@ ifneq "$(words $(input_files))" "2"
 $(error Invalid number of paired-end read files in reads folder)
 endif
 
-ifneq config_file
-config_file := make.cfg
-endif
-
-#Include configuration parameters
-include $(config_file)
+#Run params
+threads:=16
 
 #Logging info
 export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log
@@ -92,4 +88,4 @@ assembly: contamination_rm
 tax_assign: assembly
 	mkdir -p $@
 	if [ ! -r $@/tax_assign.mak ]; then cp scripts/tax_assign.mak $@; fi
-	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../human_rm ctg_folder=../$^/ step=tax prev_steps=qf_rmcont_asm
+	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont
