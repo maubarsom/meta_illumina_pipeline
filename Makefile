@@ -38,8 +38,8 @@ ifneq "$(words $(input_files))" "2"
 $(error Invalid number of paired-end read files in reads folder)
 endif
 
-#Run params
-threads:=16
+#Run params from 
+include make.cfg
 
 #Logging info
 export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log

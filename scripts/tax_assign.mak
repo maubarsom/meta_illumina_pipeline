@@ -48,9 +48,13 @@ $(warning Variable 'step' has been defined as '$(step)')
 endif
 
 #Run params
-threads:=16
+ifndef threads
+	$(error Define threads variable in make.cfg file)
+endif
 
-ASSEMBLERS := masurca raymeta fermi sga 
+ifndef ASSEMBLERS
+	$(error Define ASSEMBLERS variable in make.cfg file)
+endif
 
 #Input and Output file prefixes
 IN_CTG_PREFIX := $(sample_name)_$(ctg_steps)

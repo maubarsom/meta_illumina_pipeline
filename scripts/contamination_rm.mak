@@ -47,7 +47,9 @@ IN_PREFIX:= $(sample_name)_$(prev_steps)
 OUT_PREFIX:= $(IN_PREFIX)_$(step)
 
 #Run parameters
-threads := 16
+ifndef threads
+	$(error Define threads variable in make.cfg file)
+endif
 
 #Databases
 stampy_grch38 := /labcommon/db/stampy/GRCh38/grch38

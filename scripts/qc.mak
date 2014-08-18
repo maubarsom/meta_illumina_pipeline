@@ -60,7 +60,9 @@ log_name := $(CURDIR)/qc_$(step)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
 
 #Run params
-threads := 16
+ifndef threads
+	threads := 16
+endif
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:

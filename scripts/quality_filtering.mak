@@ -55,7 +55,9 @@ log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
 
 #Run params
-threads:=16
+ifndef threads
+	$(error Define threads variable in make.cfg file)
+endif
 
 #Prinseq params
 #out_format: fasta 1, fastq 3

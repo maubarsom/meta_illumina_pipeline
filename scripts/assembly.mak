@@ -52,8 +52,13 @@ log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
 
 #Run params
-threads:=16
-ASSEMBLERS := raymeta fermi sga masurca abyss
+ifndef threads
+	$(error Define threads variable in make.cfg file)
+endif
+
+ifndef ASSEMBLERS
+	$(error Define ASSEMBLERS variable in make.cfg file)
+endif
 
 #Creates a OUT_PREFIX_assembler_ctgs_filt.fa for each assembler
 OUT_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix $(OUT_PREFIX)_,$(ASSEMBLERS)))
