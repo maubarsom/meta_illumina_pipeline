@@ -122,7 +122,7 @@ $(bwastampy_pre)_pe.bam $(bwastampy_pre)_se.bam: %.bam:%.sam
 #*************************************************************************
 $(sort_pre)_pe.bam $(sort_pre)_se.bam: $(sort_pre)_%.bam : $(mapping_pre)_%.bam
 	@echo -e "\nSort bam file by queryname\n\n" >> $(log_file)
-	run_picard SortSam.jar INPUT=$^ OUTPUT=$@ SORT_ORDER=queryname 2> $(log_file)
+	run_picard SortSam.jar INPUT=$^ OUTPUT=$@ SORT_ORDER=queryname TMP_DIR=$(TMP_DIR) 2>> $(log_file)
 
 #Keep only reads that did not map confidently (with both pairs)
 $(filter_pre)_pe.bam $(filter_pre)_se.bam: $(filter_pre)_%.bam : $(sort_pre)_%.bam

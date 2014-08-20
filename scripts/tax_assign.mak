@@ -132,7 +132,7 @@ reads_fa/%.fa: $(read_folder)/%.fq
 #Call to Kraken - Salzberg
 #*************************************************************************
 #Other flags: --fastq-input
-kraken/$(IN_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%_ctgs_filt.fa
+kraken/$(IN_CTG_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%_ctgs_filt.fa
 	mkdir -p kraken
 	@echo -e "\nClassifying $* contigs with Kraken\n\n" > $(log_file)
 	kraken --db $(kraken_db) --threads $(threads) $^ > $@ 2>> $(log_file)

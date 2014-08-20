@@ -38,6 +38,10 @@ $(warning Variable 'read_folder' will be assumed to be "./")
 read_folder := ./
 endif
 
+ifndef TMP_DIR
+TMP_DIR := /tmp
+endif
+
 #Outfile
 OUT_PREFIX:=$(sample_name)_$(step)
 
@@ -135,10 +139,10 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 #PRINSEQ
 #*************************************************************************
 %_stats.txt: $(R1) $(R2)
-	gunzip -c $< > tmp_R1.fq
-	gunzip -c $(word 2,$^) > tmp_R2.fq
-	prinseq-lite.pl -fastq tmp_R1.fq -fastq2 tmp_R2.fq -stats_all > $@
-	rm tmp_R1.fq tmp_R2.fq
+	gunzip -c $< > $(TMP_DIR)/tmp_R1.fq
+	gunzip -c $(word 2,$^) > $(TMP_DIR)/tmp_R2.fq
+	prinseq-lite.pl -fastq $(TMP_DIR)/tmp_R1.fq -fastq2 $(TMP_DIR)/tmp_R2.fq -stats_all > $@
+	rm $(TMP_DIR)/tmp_R1.fq $(TMP_DIR)/tmp_R2.fq
 
 #*************************************************************************
 #CLEANING RULES
