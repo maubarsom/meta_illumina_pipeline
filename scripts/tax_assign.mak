@@ -77,6 +77,7 @@ swissprot_faa := /labcommon/db/fasta/uniprot_sprot.fasta
 tax_dmp_nucl := /labcommon/db/taxdb/gi_taxid_nucl.dmp
 tax_dmp_prot := /labcommon/db/taxdb/gi_taxid_prot.dmp
 blastdb_folder:=/labcommon/db/blastdb/
+pfam_hmm_db := /labcommon/db/hmmerdb/Pfam-A.hmm
 
 #Blast parameters
 blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -show_gis
@@ -95,11 +96,16 @@ FGS_PATH:= /labcommon/tools/FragGeneScan1.18
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-.PHONY: all kraken_reports phmmer_vir phmmer_sprot blastn_vir blastp_vir blastp_sprot blastx_vir blastx_sprot
+.PHONY: all
+.PHONY: kraken_reports blastn_vir blastn_nt
+.PHONY: blastp_vir blastp_nr blastp_sprot
+.PHONY: blastx_vir blastx_nr blastx_sprot
+.PHONY: hmmscan_pfam phmmer_vir phmmer_sprot
 
-# all: kraken_reports phmmer_out blastp_out blastx_out
-all: kraken_reports phmmer_vir phmmer_sprot blastn_vir blastp_vir blastp_sprot blastx_vir blastx_sprot
-all: blastn_nt blastx_nr
+all: kraken_reports blastn_vir blastn_nt
+all: blastp_vir blastp_nr
+all: blastx_vir blastx_nr
+all: hmmscan_pfam phmmer_vir
 
 #Outputs
 
@@ -108,11 +114,15 @@ kraken_reports: $(call ctg_outfiles,kraken,kraken.report,$(ASSEMBLERS))
 phmmer_vir : $(call ctg_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
 phmmer_sprot : $(call ctg_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
 
+hmmscan_pfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,$(ASSEMBLERS))
+
 blastn_nt : $(call ctg_outfiles,blastn,blastn_nt.xml,$(ASSEMBLERS))
 blastn_vir : $(call ctg_outfiles,blastn,blastn_refseqvir.xml,$(ASSEMBLERS))
 blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
 
 blastp_vir : $(call ctg_outfiles,blastp,fgs_blastp_refseqvir.xml,$(ASSEMBLERS))
+blastp_vir : $(call read_outfiles,blastp,fgs_blastp_refseqvir.xml,pe se)
+blastp_nr : $(call ctg_outfiles,blastp,fgs_blastp_nr.xml,$(ASSEMBLERS))
 blastp_sprot : $(call ctg_outfiles,blastp,fgs_blastp_sprot.xml,$(ASSEMBLERS))
 
 blastx_nr : $(call ctg_outfiles,blastx,blastx_nr.xml,$(ASSEMBLERS))
@@ -168,6 +178,16 @@ phmmer/%_fgs_phmmer_sprot.tbl : fgs/%_fgs.faa $(swissprot_faa)
 phmmer/%_fgs_phmmer_refseqvir.tbl : fgs/%_fgs.faa $(refseq_virus_faa)
 	mkdir -p phmmer
 	phmmer --cpu $(threads) --noali --tblout $@ $^ > /dev/null 2>> $(log_file)
+
+#*************************************************************************
+#HMMSCAN
+#*************************************************************************
+#Optional --domtblout $(basename $@).dom
+
+#Contigs against pfam
+hmmscan/%_fgs_hmmscan_pfam.tbl : $(pfam_hmm_db) fgs/%_fgs.faa
+	mkdir -p $(dir $@)
+	hmmscan --cpu $(threads) --noali --tblout $@ $^ > /dev/null 2>> $(log_file)
 
 #*************************************************************************
 #BlastN - Nucleotides
