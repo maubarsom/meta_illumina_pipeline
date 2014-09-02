@@ -78,6 +78,7 @@ tax_dmp_nucl := /labcommon/db/taxdb/gi_taxid_nucl.dmp
 tax_dmp_prot := /labcommon/db/taxdb/gi_taxid_prot.dmp
 blastdb_folder:=/labcommon/db/blastdb/
 pfam_hmm_db := /labcommon/db/hmmerdb/Pfam-A.hmm
+vfam_hmm_db := /labcommon/db/hmmerdb/vFam-A_2014.hmm
 
 #Blast parameters
 blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -show_gis
@@ -100,12 +101,12 @@ FGS_PATH:= /labcommon/tools/FragGeneScan1.18
 .PHONY: kraken_reports blastn_vir blastn_nt
 .PHONY: blastp_vir blastp_nr blastp_sprot
 .PHONY: blastx_vir blastx_nr blastx_sprot
-.PHONY: hmmscan_pfam phmmer_vir phmmer_sprot
+.PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
 
 all: kraken_reports blastn_vir blastn_nt
-all: blastp_vir blastp_nr
+#all: blastp_vir blastp_nr
 all: blastx_vir blastx_nr
-all: hmmscan_pfam phmmer_vir
+all: hmmscan_pfam hmmscan_vfam phmmer_vir
 
 #Outputs
 
@@ -115,6 +116,7 @@ phmmer_vir : $(call ctg_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
 phmmer_sprot : $(call ctg_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
 
 hmmscan_pfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,$(ASSEMBLERS))
+hmmscan_vfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,$(ASSEMBLERS))
 
 blastn_nt : $(call ctg_outfiles,blastn,blastn_nt.xml,$(ASSEMBLERS))
 blastn_vir : $(call ctg_outfiles,blastn,blastn_refseqvir.xml,$(ASSEMBLERS))
@@ -186,6 +188,11 @@ phmmer/%_fgs_phmmer_refseqvir.tbl : fgs/%_fgs.faa $(refseq_virus_faa)
 
 #Contigs against pfam
 hmmscan/%_fgs_hmmscan_pfam.tbl : $(pfam_hmm_db) fgs/%_fgs.faa
+	mkdir -p $(dir $@)
+	hmmscan --cpu $(threads) --noali --tblout $@ $^ > /dev/null 2>> $(log_file)
+
+#Contigs against vFam (Skewes-Cox,2014)
+hmmscan/%_fgs_hmmscan_vfam.tbl : $(vfam_hmm_db) fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	hmmscan --cpu $(threads) --noali --tblout $@ $^ > /dev/null 2>> $(log_file)
 
