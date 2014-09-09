@@ -51,11 +51,6 @@ ifndef threads
 	$(error Define threads variable in make.cfg file)
 endif
 
-#Databases
-stampy_grch38 := /labcommon/db/stampy/GRCh38/grch38
-stampy_grch37 := /labcommon/db/stampy/GRCh37.p13/grch37_p13
-bwa_grch37 := /labcommon/db/bwa/GRCh37.p13/grch37_p13
-
 #Input files
 R1 := $(read_folder)/$(IN_PREFIX)_R1.fq.gz
 R2 := $(read_folder)/$(IN_PREFIX)_R2.fq.gz
@@ -97,38 +92,38 @@ $(bwa_pre)_se.sam: $(singles)
 
 $(bwa_pre)_pe.sam $(bwa_pre)_se.sam:
 	@echo -e "\nMapping $^ to GRCh37 with BWA MEM @"`date`"\n\n" >> $(log_file)
-	bwa mem -t $(threads) -T 20 -M $(bwa_grch37) $^ > $@ 2> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 20 -M $(bwa_grch37) $^ > $@ 2> $(log_file)
 
 #Prepare bwa output for Stampy
 $(bwa_pre)_pe.bam $(bwa_pre)_se.bam: $(bwa_pre)_%.bam: $(bwa_pre)_%.sam
-	samtools view -hSb -o $@ $^ 2> $(log_file)
+	$(SAMTOOLS_BIN) view -hSb -o $@ $^ 2> $(log_file)
 
 #*************************************************************************
 #Improve BWA mappings with Stampy
 #*************************************************************************
 $(bwastampy_pre)_%.sam: $(bwa_pre)_%.bam
 	@echo -e "\nCorrecting $^ with Stampy @"`date`"\n\n" >> $(log_file)
-	stampy.py -t $(threads) -g $(stampy_grch37) -h $(stampy_grch37) --bamkeepgoodreads -o $@ -M $^
+	$(STAMPY_BIN) -t $(threads) -g $(stampy_grch37) -h $(stampy_grch37) --bamkeepgoodreads -o $@ -M $^
 
 #*************************************************************************
 #Convert to bam removing secondary mappings
 #*************************************************************************
 $(bwastampy_pre)_pe.bam $(bwastampy_pre)_se.bam: %.bam:%.sam
 	@echo -e "\nRemoving secondary mappings from $^ @ `date` \n\n" >> $(log_file)
-	samtools view -F 256 -hSb -o $@ $^ 2> $(log_file)
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^ 2> $(log_file)
 
 #*************************************************************************
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
 $(sort_pre)_pe.bam $(sort_pre)_se.bam: $(sort_pre)_%.bam : $(mapping_pre)_%.bam
 	@echo -e "\nSort bam file by queryname\n\n" >> $(log_file)
-	run_picard SortSam.jar INPUT=$^ OUTPUT=$@ SORT_ORDER=queryname TMP_DIR=$(TMP_DIR) 2>> $(log_file)
+	$(PICARD_SORTSAM_BIN) INPUT=$^ OUTPUT=$@ SORT_ORDER=queryname TMP_DIR=$(TMP_DIR) 2>> $(log_file)
 
 #Keep only reads that did not map confidently (with both pairs)
 $(filter_pre)_pe.bam $(filter_pre)_se.bam: $(filter_pre)_%.bam : $(sort_pre)_%.bam
 	@echo -e "\nExtract $* reads that did not map to GRCh37\n\n" > $(log_file)
-	run_picard FilterSamReads.jar INPUT=$^ OUTPUT=$@ FILTER=excludeAligned SORT_ORDER=queryname WRITE_READS_FILES=False 2> $(log_file)
+	$(PICARD_FILTERSAMREADS_BIN) INPUT=$^ OUTPUT=$@ FILTER=excludeAligned SORT_ORDER=queryname WRITE_READS_FILES=False 2> $(log_file)
 
 $(filter_pre)_%.fq : $(filter_pre)_%.bam
 	@echo -e "\nConvert bam to interleaved fastq\n\n" > $(log_file)
-	run_picard SamToFastq.jar INPUT=$^ FASTQ=$@ INTERLEAVE=True 2> $(log_file)
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2> $(log_file)

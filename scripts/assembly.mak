@@ -78,10 +78,6 @@ masurca_kmer := 21
 masurca_pe_stats := 400 80
 masurca_se_stats := 250 50
 
-#Binary paths
-SGA_BIN := sga
-MASURCA_BIN:=/labcommon/tools/MaSuRCA-2.2.1/bin
-
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
 
@@ -133,11 +129,11 @@ $(OUT_PREFIX)_abyss_contigs.fa: abyss/abyssk$(abyss_kmer)-contigs.fa
 #*************************************************************************
 paired_ends/%_R1.fq : $(read_folder)/%_pe.fq
 	mkdir -p $(dir $@)
-	seqtk seq -1 $^ > $(firstword $@)
+	$(SEQTK_BIN) seq -1 $^ > $(firstword $@)
 
 paired_ends/%_R2.fq: $(read_folder)/%_pe.fq
 	mkdir -p $(dir $@)
-	seqtk seq -2 $^ > $(lastword $@)
+	$(SEQTK_BIN) seq -2 $^ > $(lastword $@)
 
 masurca/masurca.cfg: paired_ends/$(IN_PREFIX)_R1.fq paired_ends/$(IN_PREFIX)_R2.fq $(INPUT_SINGLE_END)
 	mkdir -p $(dir $@)
@@ -200,7 +196,7 @@ $(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 #Extract contigs > 500 bp
 #*************************************************************************
 %_ctgs_filt.fa : %_contigs.fa
-	seqtk seq -L 500 $^ > $@ 2> $(log_file)
+	$(SEQTK_BIN) seq -L 500 $^ > $@ 2> $(log_file)
 
 .PHONY: clean
 clean:

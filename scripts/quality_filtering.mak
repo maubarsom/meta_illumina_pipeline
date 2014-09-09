@@ -69,11 +69,6 @@ prinseq_params:= -verbose -out_format 3 -log prinseq.log -min_len 75 -derep 1 -l
 sga_ec_kmer := 41
 sga_cov_filter := 2
 
-#Binary paths
-NESONI_BIN := nesoni
-CUTADAPT_BIN := cutadapt
-SGA_BIN := sga
-
 #Output name generators (notice the = instead of := to set the appropriate directory)
 nesoni_out_prefix = $(dir $@)$*
 prinseq_out_prefix = $(dir $@)$*
@@ -114,9 +109,9 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 \
 		--out-separate yes --gzip no $(nesoni_out_prefix) pairs: $^ 2>> $(log_file)
 
-3_prinseq/%_R1.fq.gz 3_prinseq/%_R2.fq.gz: 2_nesoni/%_R1.fq 2_nesoni/%_R2.fq
+3_prinseq/%_R1.fq.gz 3_prinseq/%_R2.fq.gz 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq: 2_nesoni/%_R1.fq 2_nesoni/%_R2.fq
 	mkdir -p $(dir $@)
-	prinseq-lite.pl -fastq $< -fastq2 $(word 2,$^) $(prinseq_params) -out_good $(prinseq_out_prefix) -out_bad $(prinseq_out_prefix)_BAD 2>> $(log_file)
+	$(PRINSEQ_BIN) -fastq $< -fastq2 $(word 2,$^) $(prinseq_params) -out_good $(prinseq_out_prefix) -out_bad $(prinseq_out_prefix)_BAD 2>> $(log_file)
 	mv $(prinseq_out_prefix)_1.fastq $(prinseq_out_prefix)_R1.fq && gzip $(prinseq_out_prefix)_R1.fq
 	mv $(prinseq_out_prefix)_2.fastq $(prinseq_out_prefix)_R2.fq && gzip $(prinseq_out_prefix)_R2.fq
 	if [ ! -e $(prinseq_out_prefix)_1_singletons.fastq ]; then touch $(prinseq_out_prefix)_1_singletons.fastq; fi
@@ -124,10 +119,11 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 
 3_prinseq/%_single.fastq: 2_nesoni/%_single.fq
 	mkdir -p $(dir $@)
-	prinseq-lite.pl -fastq $^ $(prinseq_params) -out_good $(prinseq_out_prefix)_single -out_bad $(prinseq_out_prefix)_single_BAD 2>> $(log_file)
+	$(PRINSEQ_BIN) -fastq $^ $(prinseq_params) -out_good $(prinseq_out_prefix)_single -out_bad $(prinseq_out_prefix)_single_BAD 2>> $(log_file)
 
 3_prinseq/%_single.fq.gz: 3_prinseq/%_single.fastq 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq
 	cat $^ | gzip > $@
+
 #*************************************************************************
 #SGA quality filtering steps
 #*************************************************************************
