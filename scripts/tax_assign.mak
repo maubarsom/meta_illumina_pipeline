@@ -90,9 +90,9 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 .PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
 
 all: kraken_reports blastn_vir blastn_nt
-#all: blastp_vir blastp_nr
 all: blastx_vir blastx_nr
 all: hmmscan_pfam hmmscan_vfam phmmer_vir
+#all: blastp_vir blastp_nr
 
 #Outputs
 
@@ -102,7 +102,9 @@ phmmer_vir : $(call ctg_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
 phmmer_sprot : $(call ctg_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
 
 hmmscan_pfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,$(ASSEMBLERS))
+hmmscan_pfam : $(call read_outfiles,blastp,fgs_hmmscan_pfam.tbl,pe se)
 hmmscan_vfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,$(ASSEMBLERS))
+hmmscan_vfam : $(call read_outfiles,blastp,fgs_hmmscan_vfam.tbl,pe se)
 
 blastn_nt : $(call ctg_outfiles,blastn,blastn_nt.xml,$(ASSEMBLERS))
 blastn_vir : $(call ctg_outfiles,blastn,blastn_refseqvir.xml,$(ASSEMBLERS))
