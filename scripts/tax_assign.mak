@@ -193,19 +193,19 @@ refseq_virus_fna_blastdb: $(refseq_virus_fna)
 	cd $@ && makeblastdb -dbtype nucl -out $@ -title $@ -parse_seqids -taxid_map $(tax_dmp_nucl) -in $^
 
 #Reads to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: reads_fa/%.fa | refseq_virus_fna_blastdb
+blastn/%_blastn_refseqvir.xml: reads_fa/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $|/$| -query $^ -out $@ 2>> $(log_file)
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
 
 #Contigs to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%_ctgs_filt.fa | refseq_virus_fna_blastdb
+blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%_ctgs_filt.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $|/$| -query $^ -out $@ 2>> $(log_file)
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
 
 #Contigs to nt
 blastn/%_blastn_nt.xml: $(ctg_folder)/%_ctgs_filt.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_folder)/nt/nt -query $^ -out $@ 2>> $(log_file)
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $@ 2>> $(log_file)
 
 #*************************************************************************
 #BlastX - Proteins
@@ -218,34 +218,34 @@ refseq_virus_faa_blastdb: $(refseq_virus_faa)
 #Contigs to NR
 blastx/%_blastx_nr.xml : $(ctg_folder)/%_ctgs_filt.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_folder)/nr/nr -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
 
 #Contigs to Swissprot
 blastx/%_blastx_sprot.xml : $(ctg_folder)/%_ctgs_filt.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_folder)/nr/swissprot -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
 
 #Contigs to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa | refseq_virus_faa_blastdb
+blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa 
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $|/$| -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
 #Reads to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : reads_fa/%.fa | refseq_virus_faa_blastdb
+blastx/%_blastx_refseqvir.xml : reads_fa/%.fa 
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $|/$| -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
 #*************************************************************************
 blastp/%_fgs_blastp_nr.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_folder)/nr/nr -query $< -out $@ 2>> $(log_file)
+	$(BLASTP_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
 
 blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_folder)/nr/swissprot -query $< -out $@ 2>> $(log_file)
+	$(BLASTP_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
 
-blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa | refseq_virus_faa_blastdb
+blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa 
 	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $|/$| -query $< -out $@ 2>> $(log_file)
+	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)

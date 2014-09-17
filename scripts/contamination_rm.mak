@@ -92,7 +92,7 @@ $(bwa_pre)_se.sam: $(singles)
 
 $(bwa_pre)_pe.sam $(bwa_pre)_se.sam:
 	@echo -e "\nMapping $^ to GRCh37 with BWA MEM @"`date`"\n\n" >> $(log_file)
-	$(BWA_BIN) mem -t $(threads) -T 20 -M $(bwa_grch37) $^ > $@ 2> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 20 -M $(bwa_hg_idx) $^ > $@ 2> $(log_file)
 
 #Prepare bwa output for Stampy
 $(bwa_pre)_pe.bam $(bwa_pre)_se.bam: $(bwa_pre)_%.bam: $(bwa_pre)_%.sam
@@ -103,7 +103,7 @@ $(bwa_pre)_pe.bam $(bwa_pre)_se.bam: $(bwa_pre)_%.bam: $(bwa_pre)_%.sam
 #*************************************************************************
 $(bwastampy_pre)_%.sam: $(bwa_pre)_%.bam
 	@echo -e "\nCorrecting $^ with Stampy @"`date`"\n\n" >> $(log_file)
-	$(STAMPY_BIN) -t $(threads) -g $(stampy_grch37) -h $(stampy_grch37) --bamkeepgoodreads -o $@ -M $^
+	$(STAMPY_BIN) -t $(threads) -g $(stampy_hg_idx) -h $(stampy_hg_hash) --bamkeepgoodreads -o $@ -M $^
 
 #*************************************************************************
 #Convert to bam removing secondary mappings
