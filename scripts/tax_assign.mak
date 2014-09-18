@@ -89,7 +89,8 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 .PHONY: blastx_vir blastx_nr blastx_sprot
 .PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
 
-all: kraken_reports blastn_vir blastn_nt
+all: kraken_reports
+all: blastn_vir blastn_nt
 all: blastx_vir blastx_nr
 all: hmmscan_pfam hmmscan_vfam phmmer_vir
 #all: blastp_vir blastp_nr
@@ -226,12 +227,12 @@ blastx/%_blastx_sprot.xml : $(ctg_folder)/%_ctgs_filt.fa
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
 
 #Contigs to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa 
+blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
 #Reads to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : reads_fa/%.fa 
+blastx/%_blastx_refseqvir.xml : reads_fa/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
@@ -246,6 +247,6 @@ blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	$(BLASTP_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
 
-blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa 
+blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
