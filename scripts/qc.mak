@@ -65,7 +65,7 @@ log_file := >( tee -a $(log_name) >&2 )
 
 #Run params
 ifndef threads
-	threads := 16
+	$(error Define threads variable in make.cfg file)
 endif
 
 #Delete produced files if step fails
@@ -89,7 +89,7 @@ plot_kmer_histogram.R:
 #FASTQC
 #*************************************************************************
 
-FASTQC_RECIPE = fastqc --noextract -k 10 -o ./ $^ 2>> $(log_file)
+FASTQC_RECIPE = $(FASTQC_BIN) --noextract -k 10 -o ./ $^ 2>> $(log_file)
 
 %_fastqc.zip: $(read_folder)/%.fastq.gz
 	$(FASTQC_RECIPE)
@@ -108,29 +108,29 @@ FASTQC_RECIPE = fastqc --noextract -k 10 -o ./ $^ 2>> $(log_file)
 #*************************************************************************
 # First, preprocess the data to remove ambiguous basecalls
 $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
-	sga preprocess --pe-mode 1 -o $@ $^ >&2 2>> $(log_file)
+	$(SGA_BIN) preprocess --pe-mode 1 -o $@ $^ >&2 2>> $(log_file)
 
 # Build the index that will be used for error correction
 # Error corrector does not require the reverse BWT
 %_sga.sai: %_sga.fq
-	sga index -a ropebwt -t $(threads) --no-reverse $(notdir $^) >&2 2>> $(log_file)
+	$(SGA_BIN) index -a ropebwt -t $(threads) --no-reverse $(notdir $^) >&2 2>> $(log_file)
 
 #Run SGA preqc
 %_sga.preqc: %_sga.fq %_sga.sai
-	sga preqc -t $(threads) --force-EM $< > $@ 2>> $(log_file)
+	$(SGA_BIN) preqc -t $(threads) --force-EM $< > $@ 2>> $(log_file)
 
 #Create SGA preqc report
 %_sga_preqc.pdf: %_sga.preqc
-	sga-preqc-report.py -o $(basename $@) $^
+	$(SGA_PREQC_REPORT_BIN) -o $(basename $@) $^
 
 #*************************************************************************
 #JELLYFISH 2
 #*************************************************************************
 %_k17.jf: %_sga.fq
-	jellyfish2 count -s 8G -C -m 17 -t $(threads) -o $@ $^ 2>> $(log_file)
+	$(JELLYFISH2_BIN) count -s 8G -C -m 17 -t $(threads) -o $@ $^ 2>> $(log_file)
 
 %_k17.hist: %_k17.jf
-	jellyfish2 histo -t $(threads) $^ -o $@ 2>> $(log_file)
+	$(JELLYFISH2_BIN) histo -t $(threads) $^ -o $@ 2>> $(log_file)
 
 %_k17.hist.pdf: %_k17.hist | plot_kmer_histogram.R
 	Rscript plot_kmer_histogram.R $^ $@
