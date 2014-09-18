@@ -39,7 +39,10 @@ $(error Invalid number of paired-end read files in reads folder)
 endif
 
 #Run params from 
-include make.cfg
+ifndef cfg_file
+$(error Config file variable 'cfg_file' not set)
+endif
+include $(cfg_file)
 
 #Logging info
 export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log
