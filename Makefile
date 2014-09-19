@@ -38,11 +38,13 @@ ifneq "$(words $(input_files))" "2"
 $(error Invalid number of paired-end read files in reads folder)
 endif
 
-#Run params from 
+#Run params from
 ifndef cfg_file
 $(error Config file variable 'cfg_file' not set)
 endif
 include $(cfg_file)
+
+#Additional parameter: tax_assign_target
 
 #Logging info
 export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log
@@ -51,9 +53,9 @@ export log_file := >( tee -a $(log_name) >&2 )
 #Avoid the parallel execution of rules in this makefile
 .NOTPARALLEL:
 
-.PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly
+.PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_assign
 
-all: raw_qc qf_qc contamination_rm assembly tax_assign
+all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign
 
 #QC raw reads
 raw_qc: $(input_files)
@@ -91,4 +93,4 @@ assembly: contamination_rm
 tax_assign: assembly
 	mkdir -p $@
 	if [ ! -r $@/tax_assign.mak ]; then cp scripts/tax_assign.mak $@; fi
-	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont
+	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont $(tax_assign_target)

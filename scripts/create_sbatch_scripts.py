@@ -22,6 +22,7 @@ limitations under the License.
 
 import sys
 import argparse
+import os
 import os.path
 
 #Time of script execution and logging module
@@ -61,6 +62,11 @@ def main(args):
 		"taxassign": "tax_assign"
 	}
 
+	#Create log file for sbatch logs
+	log_folder = "log/"
+	if not os.path.exists(log_folder):
+		os.makedirs(log_folder)
+
 	for step in steps:
 		step_filename = os.path.join(args.output_folder,"run_"+step+".sh")
 		with open(step_filename, "w") as fh:
@@ -69,7 +75,8 @@ def main(args):
 			fh.write("#SBATCH -p node -n 16\n")
 			fh.write("#SBATCH -t "+step_duration[step]+"\n")
 			fh.write("#SBATCH -J "+args.sample_name+"_"+step+"\n")
-			fh.write("#SBATCH -e "+step+"-%j.err"+"\n")
+			fh.write("#SBATCH -o log/"+step+"-%j.out"+"\n")
+			fh.write("#SBATCH -e log/"+step+"-%j.err"+"\n")
 
 			fh.write("#SBATCH --mail-user mauricio.barrientos@ki.se\n")
 			fh.write("#SBATCH --mail-type=ALL\n\n")
@@ -81,7 +88,7 @@ def main(args):
 			fh.write("set -euo pipefail\n\n") #Fast failing for bash script
 
 			#Assumes cfg/uppmax.cfg is the template to use
-			#TODO: choose base configuration file from arguments 
+			#TODO: choose base configuration file from arguments
 			tmp_cfg_file = "cfg/uppmax_"+step+".cfg"
 			fh.write("cp cfg/uppmax.cfg "+tmp_cfg_file +"\n")
 			fh.write('echo "export TMP_DIR := $SNIC_TMP" >> '+tmp_cfg_file+"\n")
