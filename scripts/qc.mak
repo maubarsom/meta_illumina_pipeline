@@ -74,6 +74,8 @@ endif
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
+.INTERMEDIATE: $(OUT_PREFIX)_sga.fq %_sga.sai %_k17.jf %_sga.preqc
+
 .PHONY: all fastqc
 
 all: $(OUT_PREFIX)_stats.txt fastqc $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf
@@ -151,7 +153,6 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 
 clean-tmp:
 	-rm $(OUT_PREFIX)_sga.{fq,sai,bwt}
-	-rm *.log #Makefile log
 	-rm *.jf
 	-rm plot_kmer_histogram.R
 

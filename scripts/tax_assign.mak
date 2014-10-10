@@ -83,6 +83,8 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
+.INTERMEDIATE: $(TMP_DIR)/%.fa
+
 .PHONY: all
 .PHONY: kraken_reports blastn_vir blastn_nt
 .PHONY: blastp_vir blastp_nr blastp_sprot
@@ -125,9 +127,8 @@ blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
 #Convert Reads from Fastq to Fasta
 #*************************************************************************
 #Convert fq to fa
-reads_fa/%.fa: $(read_folder)/%.fq
-	mkdir -p $(dir $@)
-	$(SEQTK_BIN) seq -A $^ > $@ 2> $(log_file)
+$(TMP_DIR)/%.fa: $(read_folder)/%.fq
+	$(SEQTK_BIN) seq -A $^ > $@ 2>> $(log_file)
 
 #*************************************************************************
 #Call to Kraken - Salzberg
@@ -151,7 +152,7 @@ fgs/%_fgs.faa: $(ctg_folder)/%_ctgs_filt.fa
 	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
 
 #Read analysis
-fgs/%_fgs.faa : reads_fa/%.fa
+fgs/%_fgs.faa : $(TMP_DIR)/%.fa
 	mkdir -p $(dir $@)
 	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
 
@@ -194,7 +195,7 @@ refseq_virus_fna_blastdb: $(refseq_virus_fna)
 	cd $@ && makeblastdb -dbtype nucl -out $@ -title $@ -parse_seqids -taxid_map $(tax_dmp_nucl) -in $^
 
 #Reads to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: reads_fa/%.fa
+blastn/%_blastn_refseqvir.xml: $(TMP_DIR)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
 
@@ -232,7 +233,7 @@ blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
 #Reads to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : reads_fa/%.fa
+blastx/%_blastx_refseqvir.xml : $(TMP_DIR)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
@@ -250,3 +251,11 @@ blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
 blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
+
+#*************************************************************************
+#CLEANING RULES
+#*************************************************************************
+.PHONY: clean-tmp
+
+clean-tmp:
+	-rm $(TMP_DIR)/*.fa

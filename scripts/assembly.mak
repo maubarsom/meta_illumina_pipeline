@@ -96,10 +96,11 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #*************************************************************************
 raymeta/Contigs.fasta: $(INPUT_PAIRED_END)
 	@echo -e "\nAssembling reads with Ray Meta\n\n" > $(log_file)
-	mpiexec -n 16 Ray Meta -i $^ -o $(dir $@) 2> $(log_file)
+	mpiexec -n 16 Ray Meta -i $^ -o $(dir $@) 2>> $(log_file)
 
+#Ray Assembler duplicates contigs for some reason, probably due to MPI
 $(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
-	ln -s $^ $@
+	../scripts/deduplicate_raymeta_ctgs.py -o $@ $^ 2>> $(log_file)
 
 #*************************************************************************
 #Fermi
@@ -195,8 +196,10 @@ $(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 #*************************************************************************
 #Extract contigs > 500 bp
 #*************************************************************************
+#Seqtk is used to sample sequences > 500bp
+#Awk renames contigs to make them friendly for RAPSEARCH and other tools that do not support spaces in the names
 %_ctgs_filt.fa : %_contigs.fa
-	$(SEQTK_BIN) seq -L 500 $^ > $@ 2> $(log_file)
+	$(SEQTK_BIN) seq -L 500 $^ | 	awk -vPREFIX=$*  'BEGIN {counter=1; split(PREFIX,fields,"_asm_"); ASM=fields[2];} /^>/ {print ">" ASM "_" counter ;counter+=1;} ! /^>/{print $0;}' > $@ 2>> $(log_file)
 
 .PHONY: clean
 clean:
