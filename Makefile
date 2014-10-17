@@ -62,6 +62,8 @@ raw_qc: $(input_files)
 	mkdir -p $@
 	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@/; fi
 	cd raw_qc && $(MAKE) -rf qc.mak read_folder=../reads/ step=raw
+	#Delete tmp
+	-cd raw_qc && $(MAKE) -rf qc.mak read_folder=../reads/ step=raw clean-tmp
 
 #Quality filtering
 quality_filtering: $(input_files)
@@ -74,6 +76,7 @@ qf_qc: quality_filtering
 	mkdir -p $@
 	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@; fi
 	cd $@ && $(MAKE) -rf qc.mak read_folder=../$^/ step=qf
+	-cd $@ && $(MAKE) -rf qc.mak read_folder=../$^/ step=qf clean-tmp
 
 #Contamination removal (human)
 contamination_rm: quality_filtering
@@ -94,3 +97,4 @@ tax_assign: assembly
 	mkdir -p $@
 	if [ ! -r $@/tax_assign.mak ]; then cp scripts/tax_assign.mak $@; fi
 	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont $(tax_assign_target)
+	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont clean-tmp
