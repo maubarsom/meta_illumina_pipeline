@@ -35,8 +35,8 @@ step:=qf
 endif
 
 ifndef STRATEGY
-$(info Default quality filtering strategy is cutadapt+nesoni+prinseq-lite)
-STRATEGY=3_prinseq
+$(info Default quality filtering strategy is cutadapt+nesoni)
+STRATEGY=2_nesoni
 endif
 
 #Outfile
@@ -89,43 +89,50 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #*************************************************************************
 #Calls to trimmers
 #*************************************************************************
-1_cutadapt/$(sample_name)_R1.fq.gz: $(R1)
+1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz 1_cutadapt/%_single.fq.gz: $(R1) $(R2)
 	mkdir -p $(dir $@)
-	$(CUTADAPT_BIN) -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -q 20 -o $@ $^ >> $(log_file)
-
-1_cutadapt/$(sample_name)_R2.fq.gz: $(R2)
-	mkdir -p $(dir $@)
-	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT -q 20 -o $@ $^ >>$(log_file)
+	#Remove Illumina TruSeq Barcoded Adapter from fwd pair
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r1.fq.gz $< >> $(log_file)
+	#Remove reverse complement of Illumina TruSeq Universal Adapter from reverse pair
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r2.fq.gz $(word 2,$^) >> $(log_file)
+	python ../scripts/extract_small_fragments.py -o 1_cutadapt/$* $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz >> $(log_file)
 
 #You have to specify quality is phred33 because with cutadapt clipped fragments nesoni fails to detect encoding
-2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_single.fq.gz: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
+2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_singlepairs.fq.gz: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
 	mkdir -p $(dir $@)
 	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 \
 		--out-separate yes $(nesoni_out_prefix) pairs: $^ 2>> $(log_file)
+	mv 2_nesoni/$*_single.fq.gz 2_nesoni/$*_singlepairs.fq.gz
 
-#Rule to plug to prinseq as it does not accept .gz files
-2_nesoni/%_R1.fq 2_nesoni/%_R2.fq 2_nesoni/%_single.fq: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
+2_nesoni/%_single.fq.gz: 1_cutadapt/%_single.fq.gz 2_nesoni/%_singlepairs.fq.gz
 	mkdir -p $(dir $@)
 	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 \
-		--out-separate yes --gzip no $(nesoni_out_prefix) pairs: $^ 2>> $(log_file)
+		 $(nesoni_out_prefix) reads: $< 2>> $(log_file)
+	cat $(word 2,$^) $(nesoni_out_prefix).fq.gz > $@
 
-3_prinseq/%_R1.fq.gz 3_prinseq/%_R2.fq.gz 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq: 2_nesoni/%_R1.fq 2_nesoni/%_R2.fq
-	mkdir -p $(dir $@)
-	$(PRINSEQ_BIN) -fastq $< -fastq2 $(word 2,$^) $(prinseq_params) -out_good $(prinseq_out_prefix) -out_bad $(prinseq_out_prefix)_BAD 2>> $(log_file)
-	mv $(prinseq_out_prefix)_1.fastq $(prinseq_out_prefix)_R1.fq && gzip $(prinseq_out_prefix)_R1.fq
-	mv $(prinseq_out_prefix)_2.fastq $(prinseq_out_prefix)_R2.fq && gzip $(prinseq_out_prefix)_R2.fq
-	if [ ! -e $(prinseq_out_prefix)_1_singletons.fastq ]; then touch $(prinseq_out_prefix)_1_singletons.fastq; fi
-	if [ ! -e $(prinseq_out_prefix)_2_singletons.fastq ]; then touch $(prinseq_out_prefix)_2_singletons.fastq; fi
-
-3_prinseq/%_single.fastq: 2_nesoni/%_single.fq
-	mkdir -p $(dir $@)
-	$(PRINSEQ_BIN) -fastq $^ $(prinseq_params) -out_good $(prinseq_out_prefix)_single -out_bad $(prinseq_out_prefix)_single_BAD 2>> $(log_file)
-
-3_prinseq/%_single.fq.gz: 3_prinseq/%_single.fastq 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq
-	cat $^ | gzip > $@
+# #Rule to plug to prinseq as it does not accept .gz files
+# 2_nesoni/%_R1.fq 2_nesoni/%_R2.fq 2_nesoni/%_single.fq: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
+# 	mkdir -p $(dir $@)
+# 	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 \
+# 		--out-separate yes --gzip no $(nesoni_out_prefix) pairs: $^ 2>> $(log_file)
+#
+# 3_prinseq/%_R1.fq.gz 3_prinseq/%_R2.fq.gz 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq: 2_nesoni/%_R1.fq 2_nesoni/%_R2.fq
+# 	mkdir -p $(dir $@)
+# 	$(PRINSEQ_BIN) -fastq $< -fastq2 $(word 2,$^) $(prinseq_params) -out_good $(prinseq_out_prefix) -out_bad $(prinseq_out_prefix)_BAD 2>> $(log_file)
+# 	mv $(prinseq_out_prefix)_1.fastq $(prinseq_out_prefix)_R1.fq && gzip $(prinseq_out_prefix)_R1.fq
+# 	mv $(prinseq_out_prefix)_2.fastq $(prinseq_out_prefix)_R2.fq && gzip $(prinseq_out_prefix)_R2.fq
+# 	if [ ! -e $(prinseq_out_prefix)_1_singletons.fastq ]; then touch $(prinseq_out_prefix)_1_singletons.fastq; fi
+# 	if [ ! -e $(prinseq_out_prefix)_2_singletons.fastq ]; then touch $(prinseq_out_prefix)_2_singletons.fastq; fi
+#
+# 3_prinseq/%_single.fastq: 2_nesoni/%_single.fq
+# 	mkdir -p $(dir $@)
+# 	$(PRINSEQ_BIN) -fastq $^ $(prinseq_params) -out_good $(prinseq_out_prefix)_single -out_bad $(prinseq_out_prefix)_single_BAD 2>> $(log_file)
+#
+# 3_prinseq/%_single.fq.gz: 3_prinseq/%_single.fastq 3_prinseq/%_1_singletons.fastq 3_prinseq/%_2_singletons.fastq
+# 	cat $^ | gzip > $@
 
 #*************************************************************************
-#SGA quality filtering steps
+#SGA quality filtering steps - not used
 #*************************************************************************
 #1) Preprocess the data to remove ambiguous basecalls
 sga_qc/$(sample_name)_sga.fq: $(R1) $(R2)

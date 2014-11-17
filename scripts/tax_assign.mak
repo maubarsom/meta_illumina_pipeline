@@ -52,10 +52,6 @@ ifndef threads
 	$(error Define threads variable in make.cfg file)
 endif
 
-ifndef ASSEMBLERS
-	$(error Define ASSEMBLERS variable in make.cfg file)
-endif
-
 #Input and Output file prefixes
 IN_CTG_PREFIX := $(sample_name)_$(ctg_steps)
 IN_READ_PREFIX := $(sample_name)_$(read_steps)
@@ -74,7 +70,7 @@ blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -
 megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
 blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
 
-ctg_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_CTG_PREFIX)_,$(3)))
+ctg_outfile = $(1)/$(IN_CTG_PREFIX)_allctgs_$(2)
 read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 
 
@@ -92,36 +88,43 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 .PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
 
 all: kraken_reports
-all: blastn_vir blastx_vir
+all: blastx_nr
+all: blastx_vir
 # all: blastn_nt blastx_sprot
-all: hmmscan_pfam hmmscan_vfam
+# all: hmmscan_pfam hmmscan_vfam
 # all: phmmer_vir
 # all: blastp_vir blastp_nr
 
 #Outputs
 
-kraken_reports: $(call ctg_outfiles,kraken,kraken.report,$(ASSEMBLERS))
+kraken_reports: $(call ctg_outfile,kraken,kraken.report)
 
-phmmer_vir : $(call ctg_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,$(ASSEMBLERS))
-phmmer_sprot : $(call ctg_outfiles,phmmer,fgs_phmmer_sprot.tbl,$(ASSEMBLERS))
+phmmer_vir : $(call ctg_outfile,phmmer,fgs_phmmer_refseqvir.tbl)
+phmmer_sprot : $(call ctg_outfile,phmmer,fgs_phmmer_sprot.tbl)
 
-hmmscan_pfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,$(ASSEMBLERS))
+hmmscan_pfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_pfam.tbl)
 hmmscan_pfam : $(call read_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,pe se)
-hmmscan_vfam : $(call ctg_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,$(ASSEMBLERS))
+hmmscan_vfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_vfam.tbl)
 hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
 
-blastn_nt : $(call ctg_outfiles,blastn,blastn_nt.xml,$(ASSEMBLERS))
-blastn_vir : $(call ctg_outfiles,blastn,blastn_refseqvir.xml,$(ASSEMBLERS))
+blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml)
+
+blastn_vir : $(call ctg_outfile,blastn,blastn_refseqvir.xml)
 blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
 
-blastp_vir : $(call ctg_outfiles,blastp,fgs_blastp_refseqvir.xml,$(ASSEMBLERS))
+blastp_vir : $(call ctg_outfile,blastp,fgs_blastp_refseqvir.xml)
 blastp_vir : $(call read_outfiles,blastp,fgs_blastp_refseqvir.xml,pe se)
-blastp_nr : $(call ctg_outfiles,blastp,fgs_blastp_nr.xml,$(ASSEMBLERS))
-blastp_sprot : $(call ctg_outfiles,blastp,fgs_blastp_sprot.xml,$(ASSEMBLERS))
 
-blastx_nr : $(call ctg_outfiles,blastx,blastx_nr.xml,$(ASSEMBLERS))
-blastx_sprot : $(call ctg_outfiles,blastx,blastx_sprot.xml,$(ASSEMBLERS))
-blastx_vir : $(call ctg_outfiles,blastx,blastx_refseqvir.xml,$(ASSEMBLERS))
+blastp_nr : $(call ctg_outfile,blastp,fgs_blastp_nr.xml,$(ASSEMBLERS))
+blastp_sprot : $(call ctg_outfile,blastp,fgs_blastp_sprot.xml)
+
+blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
+blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
+
+blastx_sprot : $(call ctg_outfile,blastx,blastx_sprot.xml)
+blastx_sprot : $(call read_outfiles,blastx,blastx_sprot.xml,pe se)
+
+blastx_vir : $(call ctg_outfile,blastx,blastx_refseqvir.xml)
 blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
 
 #*************************************************************************
@@ -135,10 +138,10 @@ $(TMP_DIR)/%.fa: $(read_folder)/%.fq
 #Call to Kraken - Salzberg
 #*************************************************************************
 #Other flags: --fastq-input
-kraken/$(IN_CTG_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%_ctgs_filt.fa
+kraken/$(IN_CTG_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%.fa
 	mkdir -p kraken
 	@echo -e "\nClassifying $* contigs with Kraken\n\n" > $(log_file)
-	kraken --db $(kraken_db) --threads $(threads) $^ > $@ 2>> $(log_file)
+	kraken --preload --db $(kraken_db) --threads $(threads) $^ > $@ 2>> $(log_file)
 
 %_kraken.report: %_kraken.out
 	@echo -e "\nCreating Kraken report for $* \n\n" > $(log_file)
@@ -148,7 +151,7 @@ kraken/$(IN_CTG_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%_ctgs_filt
 #FragGeneScan
 #*************************************************************************
 #Contig analysis
-fgs/%_fgs.faa: $(ctg_folder)/%_ctgs_filt.fa
+fgs/%_fgs.faa: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
 
@@ -190,46 +193,41 @@ hmmscan/%_fgs_hmmscan_vfam.tbl : $(vfam_hmm_db) fgs/%_fgs.faa
 #*************************************************************************
 #BlastN - Nucleotides
 #*************************************************************************
-#Create blastdb from RefSeq virus both nucleotide and protein
-refseq_virus_fna_blastdb: $(refseq_virus_fna)
-	mkdir -p $@
-	cd $@ && makeblastdb -dbtype nucl -out $@ -title $@ -parse_seqids -taxid_map $(tax_dmp_nucl) -in $^
-
 #Reads to Refseq Viral nucleotides
 blastn/%_blastn_refseqvir.xml: $(TMP_DIR)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
 
 #Contigs to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%_ctgs_filt.fa
+blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
 
 #Contigs to nt
-blastn/%_blastn_nt.xml: $(ctg_folder)/%_ctgs_filt.fa
+blastn/%_blastn_nt.xml: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $@ 2>> $(log_file)
 
 #*************************************************************************
 #BlastX - Proteins
 #*************************************************************************
-#Build blastdb from refseq viral proteins
-refseq_virus_faa_blastdb: $(refseq_virus_faa)
-	mkdir -p $@
-	cd $@ && $(MAKEBLASTDB_BIN) -dbtype prot -out $@ -title $@ -parse_seqids -taxid_map $(tax_dmp_prot) -in $^
-
 #Contigs to NR
-blastx/%_blastx_nr.xml : $(ctg_folder)/%_ctgs_filt.fa
+blastx/%_blastx_nr.xml : $(ctg_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
+
+#Reads to NR
+blastx/%_blastx_nr.xml : $(TMP_DIR)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
 
 #Contigs to Swissprot
-blastx/%_blastx_sprot.xml : $(ctg_folder)/%_ctgs_filt.fa
+blastx/%_blastx_sprot.xml : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
 
 #Contigs to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%_ctgs_filt.fa
+blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 

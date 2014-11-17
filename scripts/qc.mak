@@ -76,9 +76,14 @@ endif
 
 .INTERMEDIATE: $(OUT_PREFIX)_sga.fq %_sga.sai %_k17.jf %_sga.preqc
 
-.PHONY: all fastqc
+.PHONY: all fastqc basic kmer_analysis
 
-all: $(OUT_PREFIX)_stats.txt fastqc $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf
+all: basic kmer_analysis
+
+#Basic
+basic: $(OUT_PREFIX)_stats.txt fastqc
+#Computationally intensive
+kmer_analysis: $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf
 
 fastqc: $(fastqc_targets)
 #*************************************************************************
@@ -143,7 +148,7 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 %_stats.txt: $(R1) $(R2)
 	gunzip -c $< > $(TMP_DIR)/tmp_R1.fq
 	gunzip -c $(word 2,$^) > $(TMP_DIR)/tmp_R2.fq
-	prinseq-lite.pl -fastq $(TMP_DIR)/tmp_R1.fq -fastq2 $(TMP_DIR)/tmp_R2.fq -stats_all > $@
+	$(PRINSEQ_BIN) -fastq $(TMP_DIR)/tmp_R1.fq -fastq2 $(TMP_DIR)/tmp_R2.fq -stats_all > $@
 	rm $(TMP_DIR)/tmp_R1.fq $(TMP_DIR)/tmp_R2.fq
 
 #*************************************************************************

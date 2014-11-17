@@ -59,31 +59,44 @@ def hmmr_parser():
 	pass
 
 def kraken_parser():
+	pass
 
-def blast_parser(blast_xml_file,blast_type,asm,db,mongo_collection, evalue_threshold=0.001,max_hits=3, ):
+#Parses an blast xml file from blast n,p,x and stores significant hits. 
+#It is designed such that the information from different searches accumulates on the same object
+#However, the information in an entry for a given blast database search will vary as follows: 
+#   If there is at least a significant hit, it will contain an object with the hit
+#   If there are no significant hits or no hits at all, it will contain a False
+def blast_parser(blast_xml_file,blast_type,asm,db,mongo_collection, evalue_threshold=0.001,max_hits=1 ):
 	with open(blast_xml_file,"r") as file_handle:
 		iterations = NCBIXML.parse(file_handle)
 		logging.info("Parsing XML file...")
 		for iteration_num,it in enumerate(iterations):
 			hit_num = 0
 			#Create dictionary json object for Mongo
-			it_json = {"seq_id":it.query,"seq_len":it.query_length,"asm":asm,"classification":None}
-			it_json[db] = []
+			it_json = {"seq_id":it.query,"seq_len":it.query_length,"asm":asm,"classification":None, db:False}
 			for hit_num, hit in enumerate(it.alignments):
 				hsps = []
 				for hsp in hit.hsps:
-					if hsp.expect < evalue_threshold:
-						hsps.append( { "e-value": hsp.expect, "alignment_length":hsp.align_length, "identities": hsp.identities,"positives": hsp.positives,"gaps": hsp.gaps,"q_start": hsp.query_start, "q_end":hsp.query_end } )
+					if hsp and hsp.expect < evalue_threshold:
+						hsps.append( { "e-value": hsp.expect,
+							"alignment_length": hsp.align_length,
+							"identities": hsp.identities,
+							"positives": hsp.positives,
+							"gaps": hsp.gaps,
+							"q_start": hsp.query_start,
+							"q_end": hsp.query_end } )
 				#Add least one significant hsp
 				if len(hsps) > 0:
-					it_json[db].append({"hit_id":hit.hit_id,"hit_def":hit.hit_def,"hsps":hsps})
+					pct_id, pct_pos, qcov = calc_hsp_stats( hsps[0],it.query_length )
+					it_json[db] = {"hit_id":hit.hit_id,"hit_def":hit.hit_def,"e-value":hsps[0]["e-value"],"pct_id":pct_id,"pct_pos":pct_pos,"qcov":qcov }
 
 				if hit_num == max_hits:
 					break
+
 			#Insert into mongo
 			upsert_into_mongo(mongo_collection,it_json)
-			#Keep track of number of iterations processed
 
+			#Keep track of number of iterations processed
 			if iteration_num % 2000 == 0 :
 				logging.info("\tIterations processed: "+str(iteration_num)+"\r")
 
@@ -93,9 +106,16 @@ def blast_parser(blast_xml_file,blast_type,asm,db,mongo_collection, evalue_thres
 def validate_args(args):
 	return True
 
+#Calculates percent identity, percent positives and query coverage
+def calc_hsp_stats( hsp , qseq_len):
+	pct_id = 100.0 * hsp["identities"] / hsp["alignment_length"]
+	pct_pos = 100.0 * hsp["positives"] / hsp["alignment_length"]
+	qcov = 100.0 * (hsp["q_end"] - hsp["q_start"]) / qseq_len
+	return pct_id, pct_pos, qcov
+
 if __name__ == '__main__':
 	#Process command line arguments
-	parser = argparse.ArgumentParser(description="The program agregates hit results from different programs into a mongodb ")
+	parser = argparse.ArgumentParser(description="The program agregates hit results from different programs into a mongodb")
 
 	parser.add_argument("annotation_files",help="Blast xml or hmmer output files to parse",nargs="+")
 	parser.add_argument("-o","--output-file", type=argparse.FileType('w'), default=sys.stdout, help="Name of the output file" )

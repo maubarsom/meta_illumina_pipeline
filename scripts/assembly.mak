@@ -86,7 +86,11 @@ masurca_se_stats := 250 50
 
 .PHONY: all
 
-all: $(OUT_FILES)
+all: $(OUT_PREFIX)_allctgs.fa
+
+#Concatenate the contigs from all assembly strategies into a single file
+$(OUT_PREFIX)_allctgs.fa: $(OUT_FILES)
+	cat $^ > $@
 
 $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	ln -s $^ $@
