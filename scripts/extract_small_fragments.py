@@ -4,6 +4,7 @@ Script that uses output from cutadapt to quickly detect fully overlapping pairs.
 It is based on the fact that if sequencing adapters are trimmed from both paired-ends, the resulting
 fragment needs to be shorter than the pair-end length
 
+Depends of cutadapt seqio and xopen modules from version 1.6
 
 Author: Mauricio Barrientos-Somarribas
 Email:  mauricio.barrientos@ki.se
@@ -63,20 +64,24 @@ def main(args):
 		logging.error("An error has occured creating one of the output files")
 		sys.exit(1)
 
-		for read1, read2 in paired_reader:
-			is_short_fragment = False
-			#If both paired-ends were trimmed "confidently"
-			r1_len, r2_len = len(read1.sequence), len(read2.sequence)
-			if max(r1_len,r2_len) < (raw_read_len - min_trim):
-				aligned_r1, aligned_r2 = align_sequences(read1,read2)
-				is_short_fragment = is_fragment(aligned_r1,aligned_r2)
+	for read1, read2 in paired_reader:
+		is_short_fragment = False
+		#If both paired-ends were trimmed "confidently"
+		r1_len, r2_len = len(read1.sequence), len(read2.sequence)
+		if max(r1_len,r2_len) < (raw_read_len - min_trim):
+			aligned_r1, aligned_r2 = align_sequences(read1,read2)
+			is_short_fragment = is_fragment(aligned_r1,aligned_r2)
 
-			if is_short_fragment:
-				consensus_fragment = get_consensus(aligned_r1,aligned_r2)
-				consensus_fragment.write(small_fragments)
-			else:
-				read1.write(out_r1)
-				read2.write(out_r2)
+		if is_short_fragment:
+			consensus_fragment = get_consensus(aligned_r1,aligned_r2)
+			consensus_fragment.write(small_fragments)
+		else:
+			read1.write(out_r1)
+			read2.write(out_r2)
+
+	out_r1.close()
+	out_r2.close()
+	small_fragments.close()
 
 
 #*****************End of Main**********************
@@ -132,8 +137,8 @@ if __name__ == '__main__':
 	parser.add_argument("R2",help="Fastq with reverse paired-end")
 
 	parser.add_argument("-o","--output-prefix", default=None, help="Prefix of the output files" )
-	parser.add_argument("--raw_read_length", default=301, help="Length of raw reads (before adapter trimming)" )
-	parser.add_argument("--min-trim", default=10, help="Minimum number of bases trimmed to consider the adapter removed was not spurious" )
+	parser.add_argument("--raw_read_length", default=301, help="Length of raw reads (before adapter trimming). Default: 301" )
+	parser.add_argument("--min-trim", default=10, help="Minimum number of bases trimmed to consider the adapter removed was not spurious. Default: 10" )
 
 	parser.add_argument("-l","--log-file", default=None, help="Name of the log file")
 
