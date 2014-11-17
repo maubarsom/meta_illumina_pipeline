@@ -96,6 +96,7 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	#Remove reverse complement of Illumina TruSeq Universal Adapter from reverse pair
 	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r2.fq.gz $(word 2,$^) >> $(log_file)
 	python ../scripts/extract_small_fragments.py -o 1_cutadapt/$* $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz >> $(log_file)
+	-rm $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
 
 #You have to specify quality is phred33 because with cutadapt clipped fragments nesoni fails to detect encoding
 2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_singlepairs.fq.gz: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
@@ -107,8 +108,9 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 2_nesoni/%_single.fq.gz: 1_cutadapt/%_single.fq.gz 2_nesoni/%_singlepairs.fq.gz
 	mkdir -p $(dir $@)
 	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 \
-		 $(nesoni_out_prefix) reads: $< 2>> $(log_file)
-	cat $(word 2,$^) $(nesoni_out_prefix).fq.gz > $@
+		$(TMP_DIR)/fragments reads: $< 2>> $(log_file)
+	cat $(word 2,$^) $(TMP_DIR)/fragments_single.fq.gz > $@
+	-rm $(TMP_DIR)/fragments_single.fq.gz
 
 # #Rule to plug to prinseq as it does not accept .gz files
 # 2_nesoni/%_R1.fq 2_nesoni/%_R2.fq 2_nesoni/%_single.fq: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
