@@ -63,6 +63,14 @@ endif
 #Creates a OUT_PREFIX_assembler_ctgs_filt.fa for each assembler
 OUT_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix $(OUT_PREFIX)_,$(ASSEMBLERS)))
 
+#Ray
+ray_kmer := 31
+
+#Fermi parameters
+fermi_overlap := 40
+
+#Fermi pe parameters
+fermi_pe_overlap := 40
 #Abyss parameters
 abyss_kmer:= 30
 
@@ -75,7 +83,7 @@ TRIM_LENGTH := 400
 
 #Masurca parameters
 masurca_kmer := 21
-masurca_pe_stats := 400 80
+masurca_pe_stats := 300 80
 masurca_se_stats := 250 50
 
 #Delete produced files if step fails
@@ -98,26 +106,42 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #*************************************************************************
 #MetaRay
 #*************************************************************************
-raymeta/Contigs.fasta: $(INPUT_PAIRED_END)
+raymeta/Contigs.fasta: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 	@echo -e "\nAssembling reads with Ray Meta\n\n" > $(log_file)
-	mpiexec -n 16 Ray Meta -i $^ -o $(dir $@) 2>> $(log_file)
+	mpiexec -n 16 Ray Meta -k $(ray_kmer) -i $(INPUT_PAIRED_END) -s $(INPUT_SINGLE_END) -o $(dir $@) 2>> $(log_file)
 
 #Ray Assembler duplicates contigs for some reason, probably due to MPI
 $(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
 	../scripts/deduplicate_raymeta_ctgs.py -o $@ $^ 2>> $(log_file)
 
 #*************************************************************************
-#Fermi
+#Fermi - only pe
 #*************************************************************************
 #Runs Fermi assembler until the 4th step.
 #Qualities are not neccessary for Kraken/Blast classification
-fermi/fmdef.p4.fa.gz: $(INPUT_PAIRED_END)
-	mkdir -p fermi
-	cd fermi && run-fermi.pl -t $(threads) -c ../$^ > assembly.mak 2> $(log_file)
-	cd fermi && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
+fermipe/fmdef.p4.fa.gz: $(INPUT_PAIRED_END)
+	mkdir -p $(dir $@)
+	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) -c ../$^ > assembly.mak 2>> $(log_file)
+	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
 
-$(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p4.fa.gz
+$(OUT_PREFIX)_fermipe_contigs.fa: fermipe/fmdef.p4.fa.gz
 	gunzip -c $^ > $@
+
+#*************************************************************************
+#Fermi - all
+#*************************************************************************
+#Runs Fermi assembler with both single and paired-ends assuming they are all single-ends
+#Fermi outputs only until the 2nd step
+#Qualities are not neccessary for Kraken/Blast classification
+fermi/fmdef.p2.mag.gz: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
+	mkdir -p $(dir $@)
+	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) $(addprefix ../,$^) > assembly.mak 2>> $(log_file)
+	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
+
+$(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
+	ln -s $^ fermi_all.fq.gz
+	seqtk seq -A fermi_all.fq.gz > $@
+	-rm fermi_all.fq.gz
 
 #*************************************************************************
 #Abyss
