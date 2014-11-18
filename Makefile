@@ -82,7 +82,7 @@ qf_qc: quality_filtering
 contamination_rm: quality_filtering
 	mkdir -p $@
 	if [ ! -r $@/contamination_rm.mak ]; then cp scripts/contamination_rm.mak $@; fi
-	cd $@ && $(MAKE) -rf contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf STRATEGY=bwastampy
+	cd $@ && $(MAKE) -rf contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf
 
 #Assembly step
 assembly: contamination_rm

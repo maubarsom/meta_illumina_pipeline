@@ -38,10 +38,6 @@ step:=rmcont
 $(warning Variable 'step' has been defined as '$(step)')
 endif
 
-ifndef STRATEGY
-$(error Variable 'STRATEGY' is not defined. Select 'bwa' or 'bwastampy')
-endif
-
 #Input and Output file prefixes
 IN_PREFIX:= $(sample_name)_$(prev_steps)
 OUT_PREFIX:= $(IN_PREFIX)_$(step)
@@ -61,12 +57,12 @@ log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
 
 #Intermediate file names
-bwa_pre:= $(IN_PREFIX)_bwa
-bwastampy_pre := $(IN_PREFIX)_bwastampy
+bwa_hg:= $(IN_PREFIX)_bwahg
+stampy_hg := $(IN_PREFIX)_bwa
+no_human := $(IN_PREFIX)_nohuman
 
-mapping_pre := $(IN_PREFIX)_$(STRATEGY)
-sort_pre := $(mapping_pre)_sort
-filter_pre := $(sort_pre)_filter
+bwa_contaminants := $(no_human)_bwa
+no_contaminants := $(no_human)_nocontaminants
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -81,49 +77,63 @@ all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_se.fq
 #*************************************************************************
 #Create output files from the strategy
 #*************************************************************************
-$(OUT_PREFIX)_%.fq: $(filter_pre)_%.fq
+$(OUT_PREFIX)_%.fq: $(no_contaminants)_%.fq
 	ln -s $^ $@
 
 #*************************************************************************
 #Map to GRCh37 with BWA MEM
 #*************************************************************************
-$(bwa_pre)_pe.sam: $(R1) $(R2)
-$(bwa_pre)_se.sam: $(singles)
+$(bwa_hg)_pe.sam: $(R1) $(R2)
+$(bwa_hg)_se.sam: $(singles)
 
-$(bwa_pre)_pe.sam $(bwa_pre)_se.sam:
+$(bwa_hg)_pe.sam $(bwa_hg)_se.sam:
 	@echo -e "\nMapping $^ to GRCh37 with BWA MEM @"`date`"\n\n" >> $(log_file)
-	$(BWA_BIN) mem -t $(threads) -T 20 -M $(bwa_hg_idx) $^ > $@ 2> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_hg_idx) $^ > $@ 2> $(log_file)
 
 #Prepare bwa output for Stampy
-$(bwa_pre)_pe.bam $(bwa_pre)_se.bam: $(bwa_pre)_%.bam: $(bwa_pre)_%.sam
-	$(SAMTOOLS_BIN) view -hSb -o $@ $^ 2> $(log_file)
+$(bwa_hg)_pe.bam $(bwa_hg)_se.bam: $(bwa_hg)_%.bam: $(bwa_hg)_%.sam
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^ 2>> $(log_file)
 
 #*************************************************************************
 #Improve BWA mappings with Stampy
 #*************************************************************************
-$(bwastampy_pre)_%.sam: $(bwa_pre)_%.bam
+$(stampy_hg)_%.sam: $(bwa_hg)_%.bam
 	@echo -e "\nCorrecting $^ with Stampy @"`date`"\n\n" >> $(log_file)
-	$(STAMPY_BIN) -t $(threads) -g $(stampy_hg_idx) -h $(stampy_hg_hash) --bamkeepgoodreads -o $@ -M $^
+	$(STAMPY_BIN) -t $(threads) -g $(stampy_hg_idx) -h $(stampy_hg_hash) --bamkeepgoodreads -o $@ -M $^ 2>> $(log_file)
 
 #*************************************************************************
 #Convert to bam removing secondary mappings
 #*************************************************************************
-$(bwastampy_pre)_pe.bam $(bwastampy_pre)_se.bam: %.bam:%.sam
+$(stampy_hg)_pe.bam $(stampy_hg)_se.bam: %.bam:%.sam
 	@echo -e "\nRemoving secondary mappings from $^ @ `date` \n\n" >> $(log_file)
 	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^ 2> $(log_file)
 
 #*************************************************************************
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
-$(sort_pre)_pe.bam $(sort_pre)_se.bam: $(sort_pre)_%.bam : $(mapping_pre)_%.bam
+$(no_human)_pe.bam $(no_human)_se.bam: $(no_human)_%.bam  : $(bwa_hg)_%.bam
 	@echo -e "\nSort bam file by queryname\n\n" >> $(log_file)
-	$(PICARD_SORTSAM_BIN) INPUT=$^ OUTPUT=$@ SORT_ORDER=queryname TMP_DIR=$(TMP_DIR) 2>> $(log_file)
+	$(SAMTOOLS_BIN) view -F 2 -hb -o $@ $^ 2> $(log_file)
 
-#Keep only reads that did not map confidently (with both pairs)
-$(filter_pre)_pe.bam $(filter_pre)_se.bam: $(filter_pre)_%.bam : $(sort_pre)_%.bam
-	@echo -e "\nExtract $* reads that did not map to GRCh37\n\n" > $(log_file)
-	$(PICARD_FILTERSAMREADS_BIN) INPUT=$^ OUTPUT=$@ FILTER=excludeAligned SORT_ORDER=queryname WRITE_READS_FILES=False 2> $(log_file)
+$(no_human)_%.fq : $(no_human)_%.bam
+	@echo -e "\nConvert bam to interleaved fastq\n\n" >> $(log_file)
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
 
-$(filter_pre)_%.fq : $(filter_pre)_%.bam
-	@echo -e "\nConvert bam to interleaved fastq\n\n" > $(log_file)
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2> $(log_file)
+#*************************************************************************
+#Map reads to contaminants reference
+#*************************************************************************
+$(bwa_contaminants)_%.bam: $(no_human)_%.fq
+	@echo -e "\nMapping $^ to contaminants with BWA MEM @"`date`"\n\n" >> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 30 -Mp $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam 2>> $(log_file)
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants.sam 2> $(log_file)
+
+#*************************************************************************
+#Extract unmapped reads using Picard Tools
+#*************************************************************************
+$(no_contaminants)_pe.bam $(no_contaminants)_se.bam: $(no_contaminants)_%.bam : $(bwa_contaminants)_%.bam
+	@echo -e "\nSort bam file by queryname\n\n" >> $(log_file)
+	$(SAMTOOLS_BIN) view -F 2 -hb -o $@ $^ 2> $(log_file)
+
+$(no_contaminants)_%.fq : $(no_contaminants)_%.bam
+	@echo -e "\nConvert bam to interleaved fastq\n\n" >> $(log_file)
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
