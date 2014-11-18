@@ -55,6 +55,7 @@ def main(args):
 	min_trim = args.min_trim
 
 	paired_reader = seqio.PairedSequenceReader(args.R1, args.R2 , fileformat="fastq")
+	stats = FragmentStats(raw_read_len)
 
 	try:
 		out_r1 = xopen.xopen(args.output_prefix+"_R1.fq.gz", "w")
@@ -73,18 +74,46 @@ def main(args):
 			is_short_fragment = is_fragment(aligned_r1,aligned_r2)
 
 		if is_short_fragment:
+			stats.add_small_fragment( len(aligned_r1.sequence) )
 			consensus_fragment = get_consensus(aligned_r1,aligned_r2)
 			consensus_fragment.write(small_fragments)
 		else:
+			stats.add_non_fragment()
 			read1.write(out_r1)
 			read2.write(out_r2)
 
 	out_r1.close()
 	out_r2.close()
 	small_fragments.close()
-
+	logging.info(str(stats)+"\n")
 
 #*****************End of Main**********************
+class FragmentStats:
+	def __init__(self,read_len):
+		self.total_reads = 0
+		self.fragment_count = 0
+		self.fragment_size_dist = np.zeros(read_len,dtype=np.uint32)
+
+	def add_small_fragment(self,fragment_len):
+		self.total_reads += 1
+		self.fragment_count += 1
+		self.fragment_size_dist[fragment_len] += 1
+
+	def add_non_fragment(self):
+		self.total_reads += 1
+
+	def __str__(self):
+		out_str = "Extract fragment stats\n"
+		out_str += "Reads processed: "+str(self.total_reads)+"\n"
+		out_str += "Small fragments detected: {0}({1:.2%})\n".format(self.fragment_count,
+																	float(self.fragment_count)/self.total_reads)
+		out_str += "Small fragment size distribution\n"
+		out_str += "Fragment_len\tcount\n"
+		out_str += "\n".join([ "{0}\t{1}".format(frag_size,count)
+								for frag_size, count in enumerate(self.fragment_size_dist) ] )
+		return out_str
+
+
 def rev_complement(seq):
 	return seq[::-1].upper().replace("A","t").replace("T","a").replace("G","c").replace("C","g").upper()
 
