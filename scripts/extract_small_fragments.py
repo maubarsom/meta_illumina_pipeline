@@ -137,8 +137,8 @@ if __name__ == '__main__':
 	parser.add_argument("R2",help="Fastq with reverse paired-end")
 
 	parser.add_argument("-o","--output-prefix", default=None, help="Prefix of the output files" )
-	parser.add_argument("--raw_read_length", default=301, help="Length of raw reads (before adapter trimming). Default: 301" )
-	parser.add_argument("--min-trim", default=10, help="Minimum number of bases trimmed to consider the adapter removed was not spurious. Default: 10" )
+	parser.add_argument("--raw_read_length", default=301,type=int, help="Length of raw reads (before adapter trimming). Default: 301" )
+	parser.add_argument("--min-trim", default=10,type=int, help="Minimum number of bases trimmed to consider the adapter removed was not spurious. Default: 10" )
 
 	parser.add_argument("-l","--log-file", default=None, help="Name of the log file")
 
