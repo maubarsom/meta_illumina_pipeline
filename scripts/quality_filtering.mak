@@ -95,7 +95,7 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	$(CUTADAPT_BIN) -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r1.fq.gz $< >> $(log_file)
 	#Remove reverse complement of Illumina TruSeq Universal Adapter from reverse pair
 	$(CUTADAPT_BIN) -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r2.fq.gz $(word 2,$^) >> $(log_file)
-	python ../scripts/extract_small_fragments.py -o 1_cutadapt/$* $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz >> $(log_file)
+	python ../scripts/extract_small_fragments.py --raw_read_length $(READ_LEN) -o 1_cutadapt/$* $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz 2>> $(log_file)
 	-rm $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
 
 #You have to specify quality is phred33 because with cutadapt clipped fragments nesoni fails to detect encoding
