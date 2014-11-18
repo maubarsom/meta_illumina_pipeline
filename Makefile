@@ -60,7 +60,7 @@ all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign
 #QC raw reads
 raw_qc: $(input_files)
 	mkdir -p $@
-	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@/; fi
+	if [ ! -r $@/qc.mak ]; then cp steps/qc.mak $@/; fi
 	cd raw_qc && $(MAKE) -rf qc.mak read_folder=../reads/ step=raw basic
 	#Delete tmp
 	-cd raw_qc && $(MAKE) -rf qc.mak read_folder=../reads/ step=raw clean-tmp
@@ -68,26 +68,26 @@ raw_qc: $(input_files)
 #Quality filtering
 quality_filtering: $(input_files)
 	mkdir -p $@
-	if [ ! -r quality_filtering/quality_filtering.mak ]; then cp scripts/quality_filtering.mak $@/; fi
+	if [ ! -r quality_filtering/quality_filtering.mak ]; then cp steps/quality_filtering.mak $@/; fi
 	cd $@ && $(MAKE) -rf quality_filtering.mak read_folder=../reads/ STRATEGY=2_nesoni
 
 #QC Quality filtering
 qf_qc: quality_filtering
 	mkdir -p $@
-	if [ ! -r $@/qc.mak ]; then cp scripts/qc.mak $@; fi
+	if [ ! -r $@/qc.mak ]; then cp steps/qc.mak $@; fi
 	cd $@ && $(MAKE) -rf qc.mak read_folder=../$^/ step=qf basic
 	-cd $@ && $(MAKE) -rf qc.mak read_folder=../$^/ step=qf clean-tmp
 
 #Contamination removal (human)
 contamination_rm: quality_filtering
 	mkdir -p $@
-	if [ ! -r $@/contamination_rm.mak ]; then cp scripts/contamination_rm.mak $@; fi
+	if [ ! -r $@/contamination_rm.mak ]; then cp steps/contamination_rm.mak $@; fi
 	cd $@ && $(MAKE) -rf contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf
 
 #Assembly step
 assembly: contamination_rm
 	mkdir -p $@
-	if [ ! -r $@/assembly.mak ]; then cp scripts/assembly.mak $@; fi
+	if [ ! -r $@/assembly.mak ]; then cp steps/assembly.mak $@; fi
 	cd $@ && $(MAKE) -rf assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont
 
 #Post-Assembly - Separate singletons?
@@ -95,6 +95,6 @@ assembly: contamination_rm
 #Taxonomic / Functional Annotation
 tax_assign: assembly
 	mkdir -p $@
-	if [ ! -r $@/tax_assign.mak ]; then cp scripts/tax_assign.mak $@; fi
+	if [ ! -r $@/tax_assign.mak ]; then cp steps/tax_assign.mak $@; fi
 	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont $(tax_assign_target)
 	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont clean-tmp
