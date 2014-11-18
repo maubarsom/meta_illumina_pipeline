@@ -64,6 +64,9 @@ no_human := $(IN_PREFIX)_nohuman
 bwa_contaminants := $(no_human)_bwa
 no_contaminants := $(no_human)_nocontaminants
 
+#Function to determine interleaved flag for bwa if out file has pe or se
+interleaved_flag = $(if $(filter pe,$*),-p)
+
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
 
@@ -87,7 +90,7 @@ $(bwa_hg)_pe.sam: $(R1) $(R2)
 $(bwa_hg)_se.sam: $(singles)
 
 $(bwa_hg)_pe.sam $(bwa_hg)_se.sam:
-	@echo -e "\nMapping $^ to GRCh37 with BWA MEM @"`date`"\n\n" >> $(log_file)
+	@echo -e "\nMapping $^ to human genome with BWA MEM @"`date`"\n\n" >> $(log_file)
 	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_hg_idx) $^ > $@ 2> $(log_file)
 
 #Prepare bwa output for Stampy
@@ -112,11 +115,11 @@ $(stampy_hg)_pe.bam $(stampy_hg)_se.bam: %.bam:%.sam
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
 $(no_human)_pe.bam $(no_human)_se.bam: $(no_human)_%.bam  : $(bwa_hg)_%.bam
-	@echo -e "\nSort bam file by queryname\n\n" >> $(log_file)
+	@echo -e "\nRemove properly mapped pairs to human\n\n" >> $(log_file)
 	$(SAMTOOLS_BIN) view -F 2 -hb -o $@ $^ 2> $(log_file)
 
 $(no_human)_%.fq : $(no_human)_%.bam
-	@echo -e "\nConvert bam to interleaved fastq\n\n" >> $(log_file)
+	@echo -e "\nWrite human-free fastq\n\n" >> $(log_file)
 	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
 
 #*************************************************************************
@@ -124,16 +127,17 @@ $(no_human)_%.fq : $(no_human)_%.bam
 #*************************************************************************
 $(bwa_contaminants)_%.bam: $(no_human)_%.fq
 	@echo -e "\nMapping $^ to contaminants with BWA MEM @"`date`"\n\n" >> $(log_file)
-	$(BWA_BIN) mem -t $(threads) -T 30 -Mp $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam 2>> $(log_file)
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants.sam 2> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 30 -M $(interleaved_flag) $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam 2>> $(log_file)
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants_$*.sam 2> $(log_file)
+	-rm $(TMP_DIR)/contaminants_$*.sam 
 
 #*************************************************************************
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
 $(no_contaminants)_pe.bam $(no_contaminants)_se.bam: $(no_contaminants)_%.bam : $(bwa_contaminants)_%.bam
-	@echo -e "\nSort bam file by queryname\n\n" >> $(log_file)
+	@echo -e "\nRemove properly mapped pairs to contaminats\n\n" >> $(log_file)
 	$(SAMTOOLS_BIN) view -F 2 -hb -o $@ $^ 2> $(log_file)
 
 $(no_contaminants)_%.fq : $(no_contaminants)_%.bam
-	@echo -e "\nConvert bam to interleaved fastq\n\n" >> $(log_file)
+	@echo -e "\nWrite contaminant-free fastq\n\n" >> $(log_file)
 	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
