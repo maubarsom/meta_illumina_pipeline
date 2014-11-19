@@ -66,6 +66,8 @@ no_contaminants := $(no_human)_nocontaminants
 
 #Function to determine interleaved flag for bwa if out file has pe or se
 interleaved_flag = $(if $(filter pe,$*),-p)
+#If paired-end exclude if read mapped in proper pair. If single-end include if unmapped
+samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -116,7 +118,7 @@ $(stampy_hg)_pe.bam $(stampy_hg)_se.bam: %.bam:%.sam
 #*************************************************************************
 $(no_human)_pe.bam $(no_human)_se.bam: $(no_human)_%.bam  : $(bwa_hg)_%.bam
 	@echo -e "\nRemove properly mapped pairs to human\n\n" >> $(log_file)
-	$(SAMTOOLS_BIN) view -F 2 -hb -o $@ $^ 2> $(log_file)
+	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^ 2> $(log_file)
 
 $(no_human)_%.fq : $(no_human)_%.bam
 	@echo -e "\nWrite human-free fastq\n\n" >> $(log_file)
@@ -129,14 +131,14 @@ $(bwa_contaminants)_%.bam: $(no_human)_%.fq
 	@echo -e "\nMapping $^ to contaminants with BWA MEM @"`date`"\n\n" >> $(log_file)
 	$(BWA_BIN) mem -t $(threads) -T 30 -M $(interleaved_flag) $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam 2>> $(log_file)
 	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants_$*.sam 2> $(log_file)
-	-rm $(TMP_DIR)/contaminants_$*.sam 
+	-rm $(TMP_DIR)/contaminants_$*.sam
 
 #*************************************************************************
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
 $(no_contaminants)_pe.bam $(no_contaminants)_se.bam: $(no_contaminants)_%.bam : $(bwa_contaminants)_%.bam
 	@echo -e "\nRemove properly mapped pairs to contaminats\n\n" >> $(log_file)
-	$(SAMTOOLS_BIN) view -F 2 -hb -o $@ $^ 2> $(log_file)
+	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^ 2> $(log_file)
 
 $(no_contaminants)_%.fq : $(no_contaminants)_%.bam
 	@echo -e "\nWrite contaminant-free fastq\n\n" >> $(log_file)
