@@ -98,9 +98,9 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	python ../scripts/extract_small_fragments.py --raw_read_length $(READ_LEN) -o $(TMP_DIR)/no_small_frags $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz 2>> $(log_file)
 	-rm $(TMP_DIR)/cutadapt_r1.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
 	#Remove PCR overhang adapter for all reads
-	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(word 1,$@) $(TMP_DIR)/no_small_frags_R1.fq.gz >> $(log_file)
-	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(word 2,$@) $(TMP_DIR)/no_small_frags_R2.fq.gz >> $(log_file)
-	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(word 3,$@) $(TMP_DIR)/no_small_frags_single.fq.gz >> $(log_file)
+	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R1.fq.gz $(TMP_DIR)/no_small_frags_R1.fq.gz >> $(log_file)
+	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R2.fq.gz $(TMP_DIR)/no_small_frags_R2.fq.gz >> $(log_file)
+	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/no_small_frags_single.fq.gz >> $(log_file)
 	-rm $(TMP_DIR)/no_small_frags*.fq.gz
 
 #You have to specify quality is phred33 because with cutadapt clipped fragments nesoni fails to detect encoding
