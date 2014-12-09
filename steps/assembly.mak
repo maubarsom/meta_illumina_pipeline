@@ -86,6 +86,10 @@ masurca_kmer := 21
 masurca_pe_stats := 300 80
 masurca_se_stats := 250 50
 
+#Samtools parameters
+#If paired-end exclude if read mapped in proper pair. If single-end include if unmapped
+samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
+
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
 
@@ -94,11 +98,14 @@ masurca_se_stats := 250 50
 
 .PHONY: all
 
-all: $(OUT_PREFIX)_allctgs.fa
+all: $(OUT_PREFIX)_allctgs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_se.fa
 
 #Concatenate the contigs from all assembly strategies into a single file
 $(OUT_PREFIX)_allctgs.fa: $(OUT_FILES)
 	cat $^ > $@
+
+$(OUT_PREFIX)_%.fa: singletons/singletons_%.fa
+	ln -s $^ $@
 
 $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	ln -s $^ $@
@@ -228,6 +235,27 @@ $(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 #Awk renames contigs to make them friendly for RAPSEARCH and other tools that do not support spaces in the names
 %_ctgs_filt.fa : %_contigs.fa
 	$(SEQTK_BIN) seq -L 500 $^ | 	awk -vPREFIX=$*  'BEGIN {counter=1; split(PREFIX,fields,"_asm_"); ASM=fields[2];} /^>/ {print ">" ASM "_" counter ;counter+=1;} ! /^>/{print $0;}' > $@ 2>> $(log_file)
+
+#*************************************************************************
+#Extract singletons
+#*************************************************************************
+$(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt: $(OUT_PREFIX)_allctgs.fa
+	$(BWA_BIN) index -p $(basename $@) $<
+
+singletons/pe_to_contigs.sam: $(INPUT_PAIRED_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+	mkdir -p singletons
+	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< > $@ 2>> $(log_file)
+
+singletons/se_to_contigs.sam.fa: $(INPUT_SINGLE_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+	mkdir -p singletons
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@ 2>> $(log_file)
+
+$(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq: $(TMP_DIR)/singletons_%.fq: singletons/%_to_contigs.sam
+	$(SAMTOOLS_BIN) view -F 256 -hSb $^ | $(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $(basename $@).bam - 2>> $(log_file)
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
+
+singletons/singletons_%.fa : $(TMP_DIR)/singletons_%.fq
+	$(SEQTK_BIN) seq -A $^ > $@
 
 .PHONY: clean
 clean:
