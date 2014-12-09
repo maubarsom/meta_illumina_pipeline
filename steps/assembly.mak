@@ -246,7 +246,7 @@ singletons/pe_to_contigs.sam: $(INPUT_PAIRED_END) $(TMP_DIR)/$(OUT_PREFIX)_allct
 	mkdir -p singletons
 	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< > $@ 2>> $(log_file)
 
-singletons/se_to_contigs.sam.fa: $(INPUT_SINGLE_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+singletons/se_to_contigs.sam: $(INPUT_SINGLE_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
 	mkdir -p singletons
 	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@ 2>> $(log_file)
 
