@@ -96,6 +96,8 @@ samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
+.INTERMEDIATE: $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+
 .PHONY: all
 
 all: $(OUT_PREFIX)_allctgs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_se.fa
