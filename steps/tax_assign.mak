@@ -33,7 +33,7 @@ $(error Variable 'ctg_folder' is not defined)
 endif
 
 ifndef read_steps
-read_steps := qf_rmcont
+read_steps := qf_rmcont_asm
 $(info 'read_steps' is assumed to be $(read_steps))
 endif
 
