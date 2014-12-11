@@ -146,3 +146,8 @@ FragGeneScan:
 	tar -xzf fgs.tar.gz
 	mv FragGeneScan*/ FragGeneScan
 	cd FragGeneScan && make clean && make fgs
+
+diamond:
+	wget http://www-ab.informatik.uni-tuebingen.de/data/software/diamond/download/public/diamond-intel64-linux.tar.gz
+	tar -xzf diamond*.tar.gz
+	mv diamond bin/

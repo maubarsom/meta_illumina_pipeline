@@ -58,8 +58,8 @@ IN_READ_PREFIX := $(sample_name)_$(read_steps)
 OUT_PREFIX:= $(IN_CTG_PREFIX)_$(step)
 
 #Reads
-READS_PAIRED_END := $(read_folder)/$(IN_READ_PREFIX)_pe.fq
-READS_SINGLE_END := $(read_folder)/$(IN_READ_PREFIX)_se.fq
+READS_PAIRED_END := $(read_folder)/$(IN_READ_PREFIX)_pe.fa
+READS_SINGLE_END := $(read_folder)/$(IN_READ_PREFIX)_se.fa
 
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
@@ -88,8 +88,9 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 .PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
 
 all: kraken_reports
-all: blastx_nr
-all: blastx_vir
+all: diamond_nr
+# all: blastx_nr
+# all: blastx_vir
 # all: blastn_nt blastx_sprot
 # all: hmmscan_pfam hmmscan_vfam
 # all: phmmer_vir
@@ -121,18 +122,14 @@ blastp_sprot : $(call ctg_outfile,blastp,fgs_blastp_sprot.xml)
 blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
 blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
 
+diamond_nr : $(call ctg_outfile,diamond,diamond_nr.xml)
+diamond_nr : $(call read_outfiles,diamond,diamond_nr.xml,pe se)
+
 blastx_sprot : $(call ctg_outfile,blastx,blastx_sprot.xml)
 blastx_sprot : $(call read_outfiles,blastx,blastx_sprot.xml,pe se)
 
 blastx_vir : $(call ctg_outfile,blastx,blastx_refseqvir.xml)
 blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
-
-#*************************************************************************
-#Convert Reads from Fastq to Fasta
-#*************************************************************************
-#Convert fq to fa
-$(TMP_DIR)/%.fa: $(read_folder)/%.fq
-	$(SEQTK_BIN) seq -A $^ > $@ 2>> $(log_file)
 
 #*************************************************************************
 #Call to Kraken - Salzberg
@@ -156,7 +153,7 @@ fgs/%_fgs.faa: $(ctg_folder)/%.fa
 	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
 
 #Read analysis
-fgs/%_fgs.faa : $(TMP_DIR)/%.fa
+fgs/%_fgs.faa : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
 
@@ -194,7 +191,7 @@ hmmscan/%_fgs_hmmscan_vfam.tbl : $(vfam_hmm_db) fgs/%_fgs.faa
 #BlastN - Nucleotides
 #*************************************************************************
 #Reads to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: $(TMP_DIR)/%.fa
+blastn/%_blastn_refseqvir.xml: $(read_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
 
@@ -217,7 +214,7 @@ blastx/%_blastx_nr.xml : $(ctg_folder)/%.fa
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
 
 #Reads to NR
-blastx/%_blastx_nr.xml : $(TMP_DIR)/%.fa
+blastx/%_blastx_nr.xml : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
 
@@ -232,9 +229,18 @@ blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%.fa
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
 
 #Reads to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : $(TMP_DIR)/%.fa
+blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
+
+#*************************************************************************
+#Diamond (Tubingen) - Proteins
+#*************************************************************************
+#Contigs to NR
+#Can add --sensitive flag for slower but more accurate results
+diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(DIAMOND_BIN) -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg 2>> $(log_file)
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
