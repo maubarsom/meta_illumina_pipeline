@@ -122,8 +122,8 @@ blastp_sprot : $(call ctg_outfile,blastp,fgs_blastp_sprot.xml)
 blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
 blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
 
-diamond_nr : $(call ctg_outfile,diamond,diamond_nr.xml)
-diamond_nr : $(call read_outfiles,diamond,diamond_nr.xml,pe se)
+diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam)
+diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam,pe se)
 
 blastx_sprot : $(call ctg_outfile,blastx,blastx_sprot.xml)
 blastx_sprot : $(call read_outfiles,blastx,blastx_sprot.xml,pe se)
@@ -238,9 +238,10 @@ blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
 #*************************************************************************
 #Contigs to NR
 #Can add --sensitive flag for slower but more accurate results
+#--seg yes/no for low complexity masking
 diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg 2>> $(log_file)
+	$(DIAMOND_BIN) blastx -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
