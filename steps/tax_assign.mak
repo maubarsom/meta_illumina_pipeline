@@ -116,7 +116,7 @@ blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
 blastp_vir : $(call ctg_outfile,blastp,fgs_blastp_refseqvir.xml)
 blastp_vir : $(call read_outfiles,blastp,fgs_blastp_refseqvir.xml,pe se)
 
-blastp_nr : $(call ctg_outfile,blastp,fgs_blastp_nr.xml,$(ASSEMBLERS))
+blastp_nr : $(call ctg_outfile,blastp,fgs_blastp_nr.xml)
 blastp_sprot : $(call ctg_outfile,blastp,fgs_blastp_sprot.xml)
 
 blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
