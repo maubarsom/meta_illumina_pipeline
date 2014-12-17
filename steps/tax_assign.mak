@@ -243,6 +243,10 @@ diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(DIAMOND_BIN) blastx -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
 
+diamond/%_diamond_nr.sam : $(read_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(DIAMOND_BIN) blastx -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
+
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
 #*************************************************************************
