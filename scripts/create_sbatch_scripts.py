@@ -41,8 +41,8 @@ def main(args):
 		"qc": ["+java/sun_jdk1.7.0_25","+R/3.1.0", "+jellyfish/2.0.0" ],
 		"qf" :["+java/sun_jdk1.7.0_25","+R/3.1.0", "+jellyfish/2.0.0" ],
 		"rmcont":["+bwa/0.7.10","+picard/1.118"],
-		"asm":["-gcc","+MaSuRCA/2.2.1","+Ray/2.3.0"],
-#		"asm":["MaSuRCA/2.2.1","Ray/2.3.0","abyss/1.3.7-max"],
+		"asm":["-gcc","+bwa/0.7.10","+MaSuRCA/2.2.1","+Ray/2.3.0"],
+#		"asm":["+bwa/0.7.10","MaSuRCA/2.2.1","Ray/2.3.0","abyss/1.3.7-max"],
 		"taxassign":["+blast/2.2.29+","+hmmer/3.1b1-gcc"]
 	}
 
