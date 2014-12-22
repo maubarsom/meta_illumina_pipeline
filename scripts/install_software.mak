@@ -18,9 +18,9 @@ ROOT_FOLDER := $(shell pwd)
 all: seqtk samtools prinseq sga
 all: fastqc jellyfish2
 all: cutadapt nesoni fqtrim
-all: bwa stampy picard
+all: bwa stampy picard-tools
 all: fermi abyss raymeta masurca
-all: blast hmmer
+all: ncbi-blast hmmer
 
 #Create bin folder
 $(shell mkdir -p bin/)
@@ -48,11 +48,12 @@ prinseq/:
 fastqc:
 	wget -N http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.2.zip
 	unzip fastqc_*.zip
+	rm -rf fastqc
 	mv FastQC fastqc
 	chmod ug+x fastqc/fastqc
 	@echo "This installation assumes you have at least 16 gigs of ram"
 	sed -i "s/Xmx250m/Xmx16g/" fastqc/fastqc
-	cd bin && ln -s ../fastqc/fastqc
+	cd bin && ln -sf ../fastqc/fastqc
 
 jellyfish2:
 	echo "No rule available yet"
@@ -100,9 +101,7 @@ fqtrim:
 bwa/:
 	wget -N http://sourceforge.net/projects/bio-bwa/files/latest/download?source=files -O bwa.tar.bz2
 	tar -xjf bwa.tar.bz2
-	mv bwa-*/ bwa/
-	cd bwa && make
-	cp bwa/bwa bin/
+	cp bwa.kit/bwa bin/
 
 #Requires python2.x and python2.x-config, where x = 6 or 7
 #This is breaking, maybe requires python-dev package?
