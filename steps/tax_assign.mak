@@ -57,10 +57,6 @@ IN_CTG_PREFIX := $(sample_name)_$(ctg_steps)
 IN_READ_PREFIX := $(sample_name)_$(read_steps)
 OUT_PREFIX:= $(IN_CTG_PREFIX)_$(step)
 
-#Reads
-READS_PAIRED_END := $(read_folder)/$(IN_READ_PREFIX)_pe.fa
-READS_SINGLE_END := $(read_folder)/$(IN_READ_PREFIX)_se.fa
-
 #Logging
 log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
 log_file := >( tee -a $(log_name) >&2 )
@@ -135,9 +131,9 @@ blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
 #Call to Kraken - Salzberg
 #*************************************************************************
 #Other flags: --fastq-input
-kraken/$(IN_CTG_PREFIX)_%_kraken.out: $(ctg_folder)/$(IN_CTG_PREFIX)_%.fa
+kraken/%_kraken.out: $(ctg_folder)/%.fa
 	mkdir -p kraken
-	@echo -e "\nClassifying $* contigs with Kraken\n\n" > $(log_file)
+	@echo -e "\nClassifying $* with Kraken\n\n" > $(log_file)
 	kraken --preload --db $(kraken_db) --threads $(threads) $^ > $@ 2>> $(log_file)
 
 %_kraken.report: %_kraken.out
@@ -245,7 +241,7 @@ diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
 
 diamond/%_diamond_nr.sam : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins

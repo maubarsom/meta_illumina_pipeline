@@ -90,11 +90,9 @@ assembly: contamination_rm
 	if [ ! -r $@/assembly.mak ]; then cp steps/assembly.mak $@; fi
 	cd $@ && $(MAKE) -rf assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont
 
-#Post-Assembly - Separate singletons?
-
 #Taxonomic / Functional Annotation
 tax_assign: assembly
 	mkdir -p $@
 	if [ ! -r $@/tax_assign.mak ]; then cp steps/tax_assign.mak $@; fi
-	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm $(tax_assign_target)
-	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../contamination_rm ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
+	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm $(tax_assign_target)
+	cd $@ && $(MAKE) -rf tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
