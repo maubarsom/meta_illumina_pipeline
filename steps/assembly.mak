@@ -153,13 +153,13 @@ $(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
 	-rm fermi_all.fq.gz
 
 #*************************************************************************
-#Abyss
+#Megahit
 #*************************************************************************
-abyss/abyssk$(abyss_kmer)-contigs.fa: $(INPUT_PAIRED_END)
-	mkdir -p abyss
-	cd abyss && abyss-pe k=$(abyss_kmer) name='abyssk$(abyss_kmer)' in='../$^' np=16 2> $(log_file)
+megahit/final.contigs.fa: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
+	mkdir -p $(dir $@)
+	cd $(dir $@) && $(MEGAHIT_BIN) -m 5e10 -l $(READ_LEN) --k-max 81 --input-cmd "zcat $^" --cpu-only -t $(threads) -o megahit
 
-$(OUT_PREFIX)_abyss_contigs.fa: abyss/abyssk$(abyss_kmer)-contigs.fa
+$(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
 	ln -s $^ $@
 
 #*************************************************************************
