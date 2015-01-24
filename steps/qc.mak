@@ -49,6 +49,8 @@ OUT_PREFIX:=$(sample_name)_$(step)
 R1:= $(wildcard $(read_folder)/*R1*.f*q.gz  $(read_folder)/*_1.f*q.gz)
 R2:= $(wildcard $(read_folder)/*R2*.f*q.gz  $(read_folder)/*_2.f*q.gz)
 
+SINGLE := $(wildcard $(read_folder)/*single.f*q.gz )
+
 ifneq ($(words $(R1) $(R2)),2)
 $(error More than one R1 or R2 $(words $(R1) $(R2)))
 endif
@@ -81,7 +83,12 @@ endif
 all: basic kmer_analysis
 
 #Basic
-basic: $(OUT_PREFIX)_stats.txt fastqc
+basic: $(OUT_PREFIX)_pe_stats.txt fastqc
+
+ifdef SINGLE
+basic: $(OUT_PREFIX)_se_stats.txt
+endif
+
 #Computationally intensive
 kmer_analysis: $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf
 
@@ -145,11 +152,16 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 #*************************************************************************
 #PRINSEQ
 #*************************************************************************
-%_stats.txt: $(R1) $(R2)
+%_pe_stats.txt: $(R1) $(R2)
 	gunzip -c $< > $(TMP_DIR)/tmp_R1.fq
 	gunzip -c $(word 2,$^) > $(TMP_DIR)/tmp_R2.fq
 	$(PRINSEQ_BIN) -fastq $(TMP_DIR)/tmp_R1.fq -fastq2 $(TMP_DIR)/tmp_R2.fq -stats_all > $@
 	rm $(TMP_DIR)/tmp_R1.fq $(TMP_DIR)/tmp_R2.fq
+
+%_se_stats.txt: $(SINGLE)
+	gunzip -c $< > $(TMP_DIR)/tmp_single.fq
+	$(PRINSEQ_BIN) -fastq $(TMP_DIR)/tmp_single.fq -stats_all > $@
+	rm $(TMP_DIR)/tmp_single.fq
 
 #*************************************************************************
 #CLEANING RULES
