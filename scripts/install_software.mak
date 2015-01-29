@@ -16,6 +16,7 @@ ROOT_FOLDER := $(shell pwd)
 .PHONY: abyss raymeta masurca
 
 all: seqtk samtools prinseq sga
+all: spades iva
 all: fastqc jellyfish2
 all: cutadapt nesoni fqtrim
 all: bwa stampy picard-tools
@@ -125,6 +126,51 @@ fermi:
 	cd fermi && make
 	cp fermi/fermi bin/
 	cp fermi/run-fermi.pl bin/
+
+megahit:
+	git clone https://github.com/voutcn/megahit.git
+	cd megahit && make
+	cp megahit/megahit bin/
+
+SPAdes:
+	wget -N http://spades.bioinf.spbau.ru/release3.5.0/SPAdes-3.5.0-Linux.tar.gz
+	tar -xzf SPAdes*.tar.gz && mv SPAdes-*/ SPAdes
+	cp SPAdes/bin/* bin/
+
+#Assumes python3 installed from anaconda in a virtualenv called py3k
+Fastaq/:
+	git clone https://github.com/sanger-pathogens/Fastaq.git
+	source activate py3k && cd Fastaq && python3 setup.py install
+
+kmc:
+	mkdir -p kmc/
+	cd kmc && wget -N http://sun.aei.polsl.pl/kmc/download-2.1.1/linux/kmc
+	cd kmc && wget -N http://sun.aei.polsl.pl/kmc/download-2.1.1/linux/kmc_dump
+	cp kmc/* bin/
+
+#Assumes python 3 install from anaconda in a virtual env called py3k
+iva: Fastaq MUMmer smalt
+	source activate py3k && pip install networkx
+	source activate py3k && pip install pysam
+	wget -N https://github.com/sanger-pathogens/iva/archive/v0.11.0.tar.gz
+	tar -xzf v0.11.0.tar.gz
+	mv iva*/ iva
+	source activate py3k && cd iva && python3 setup.py install
+
+MUMmer:
+	wget -N http://downloads.sourceforge.net/project/mummer/mummer/3.23/MUMmer3.23.tar.gz
+	tar -xzf MUMmer*.tar.gz
+	mv MUMmer*/ MUMmer
+	cd MUMmer && make install
+	for x in `find MUMmer/ -maxdepth 1 -executab
+all: spades ivale -not -type d -exec basename {} \; `; do ln `pwd`/MUMmer/$x bin/$x ; done
+
+smalt:
+	wget -N http://downloads.sourceforge.net/project/smalt/smalt-0.7.6-static.tar.gz
+	tar -xzf smalt*.tar.gz
+	mv smalt*/ smalt/
+	cd smalt && mkdir -p dist && ./configure --prefix=`pwd`/dist && make install
+	cp smalt/dist/bin/* bin/*
 
 #Taxonomic searches
 ncbi-blast:
