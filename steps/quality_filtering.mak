@@ -110,11 +110,11 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 
 3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_single.fq.gz: 2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_single.fq.gz
 	mkdir -p $(dir $@)
-	$(FLASH_BIN) -m $(pairmerge_min_ovlp) $(word 1,$^) $(word 2,$^) -o out -d $(dir $@)
+	$(FLASH_BIN) -m $(pairmerge_min_ovlp) -M $(READ_LEN)  $(word 1,$^) $(word 2,$^) -o out -d $(dir $@)
 	cd $(dir $@) && mv out.notCombined_1.fastq $*_R1.fq && gzip $*_R1.fq
 	cd $(dir $@) && mv out.notCombined_2.fastq $*_R2.fq && gzip $*_R2.fq
 	cd $(dir $@) && mv out.extendedFrags.fastq $*_merged.fq
-	cd $(dir $@) && gunzip -c $(word 3,$^) | cat $*_merged.fq | gzip > $*_single.fq.gz
+	cd $(dir $@) && gunzip -c ../$(word 3,$^) | cat $*_merged.fq | gzip > $*_single.fq.gz
 
 #*************************************************************************
 #SGA quality filtering steps - not used
