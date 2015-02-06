@@ -53,7 +53,7 @@ export log_file := >( tee -a $(log_name) >&2 )
 #Avoid the parallel execution of rules in this makefile
 .NOTPARALLEL:
 
-.PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_assign
+.PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_assign metaphlan
 
 all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign
 
@@ -89,3 +89,7 @@ tax_assign: assembly
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm $(tax_assign_target)
 	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
+
+metaphlan:
+	mkdir -p $@
+	cd $@ && $(MAKE) -rf ../steps/metaphlan.mak read_folder=../reads/ raw
