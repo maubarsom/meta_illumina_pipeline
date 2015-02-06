@@ -33,29 +33,29 @@ asm: $(sample_name)_asm_metaphlan.txt $(sample_name)_asm_metaphlan.biom
 $(TMP_DIR)/reads_raw.fq : $(wildcard $(read_folder)/*.fastq.gz)
 	zcat $^ >> $@
 
-%_raw_metaphlan.txt %_raw_metaphlan.biom: $(TMP_DIR)/reads_raw.fq
-	mkdir -p metaphlan
+%_raw_metaphlan.txt: $(TMP_DIR)/reads_raw.fq
 	$(mpa_bin) --mpa_pkl $(mpa_pkl) --bowtie2db $(mpa_bowtie2db) \
-		--bowtie2out $(TMP_DIR)/raw.bowtie2.bz2 --nproc $(threads) --input_type multifastq --biom $(word 2,$@) \
-		$< $(word 1,$@)
+		--bowtie2out $(TMP_DIR)/raw.bowtie2.bz2 --nproc $(threads) --input_type multifastq \
+		--biom $*_raw_metaphlan.biom $< $@
+	-rm $(TMP_DIR)/raw.bowtie2.bz2
 
 #******************************************************************
 # Process reads after contamination removal
 #******************************************************************
-$(TMP_DIR)/reads_filt.fq : $(wildcard $(read_folder)/*_?e.fq)
+$(TMP_DIR)/reads_nohuman.fq : $(wildcard $(read_folder)/*_?e.fq)
 	cat $^ >> $@
 
-%_filt_metaphlan.txt %_filt_metaphlan.biom: $(TMP_DIR)/reads_filt.fq
-	mkdir -p metaphlan
+%_nohuman_metaphlan.txt: $(TMP_DIR)/reads_nohuman.fq
 	$(mpa_bin) --mpa_pkl $(mpa_pkl) --bowtie2db $(mpa_bowtie2db) \
-		--bowtie2out $(TMP_DIR)/filt.bowtie2.bz2 --nproc $(threads) --input_type multifastq --biom $(word 2,$@) \
-		$< $(word 1,$@)
+		--bowtie2out $(TMP_DIR)/nohuman.bowtie2.bz2 --nproc $(threads) --input_type multifastq \
+		--biom $*_nohuman_metaphlan.biom $< $(word 1,$@)
+	-rm $(TMP_DIR)/nohuman.bowtie2.bz2
 
 #******************************************************************
 # Classification of contigs
 #******************************************************************
-%_asm_metaphlan.txt %_asm_metaphlan.biom: $(wildcard $(read_folder)/*_allctgs.fa)
-	mkdir -p metaphlan
+%_asm_metaphlan.txt: $(wildcard $(read_folder)/*_allctgs.fa)
 	$(mpa_bin) --mpa_pkl $(mpa_pkl) --bowtie2db $(mpa_bowtie2db) \
-		--bowtie2out $(TMP_DIR)/asm.bowtie2.bz2 --nproc $(threads) --input_type multifasta --biom $(word 2,$@) \
-		$< $(word 1,$@)
+		--bowtie2out $(TMP_DIR)/asm.bowtie2.bz2 --nproc $(threads) --input_type multifasta \
+		--biom $*_asm_metaphlan.biom $< $@
+	-rm $(TMP_DIR)/asm.bowtie2.bz2
