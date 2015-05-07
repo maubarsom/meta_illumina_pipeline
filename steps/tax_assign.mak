@@ -85,9 +85,10 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 
 all: kraken_reports
 all: diamond_nr
+all: blastn_nt
 # all: blastx_nr
 # all: blastx_vir
-# all: blastn_nt blastx_sprot
+# all: blastx_sprot
 # all: hmmscan_pfam hmmscan_vfam
 # all: phmmer_vir
 # all: blastp_vir blastp_nr
@@ -95,16 +96,19 @@ all: diamond_nr
 #Outputs
 
 kraken_reports: $(call ctg_outfile,kraken,kraken.report)
+#kraken_reports: $(call read_outfiles,kraken,kraken.report,pe se)
 
 phmmer_vir : $(call ctg_outfile,phmmer,fgs_phmmer_refseqvir.tbl)
 phmmer_sprot : $(call ctg_outfile,phmmer,fgs_phmmer_sprot.tbl)
 
 hmmscan_pfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_pfam.tbl)
 hmmscan_pfam : $(call read_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,pe se)
+
 hmmscan_vfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_vfam.tbl)
 hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
 
 blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml)
+blastn_nt : $(call read_outfiles,blastn,blastn_nt.xml,pe se)
 
 blastn_vir : $(call ctg_outfile,blastn,blastn_refseqvir.xml)
 blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
@@ -113,7 +117,10 @@ blastp_vir : $(call ctg_outfile,blastp,fgs_blastp_refseqvir.xml)
 blastp_vir : $(call read_outfiles,blastp,fgs_blastp_refseqvir.xml,pe se)
 
 blastp_nr : $(call ctg_outfile,blastp,fgs_blastp_nr.xml)
+blastp_nr : $(call read_outfiles,blastp,fgs_blastp_nr.xml,pe se)
+
 blastp_sprot : $(call ctg_outfile,blastp,fgs_blastp_sprot.xml)
+blastp_sprot : $(call read_outfiles,blastp,fgs_blastp_sprot.xml,pe se)
 
 blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
 blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
