@@ -57,10 +57,6 @@ IN_CTG_PREFIX := $(sample_name)_$(ctg_steps)
 IN_READ_PREFIX := $(sample_name)_$(read_steps)
 OUT_PREFIX:= $(IN_CTG_PREFIX)_$(step)
 
-#Logging
-log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
-log_file := >( tee -a $(log_name) >&2 )
-
 #Blast parameters
 blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -show_gis
 megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
@@ -68,7 +64,6 @@ blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
 
 ctg_outfile = $(1)/$(IN_CTG_PREFIX)_allctgs_$(2)
 read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
-
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -140,12 +135,12 @@ blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
 #Other flags: --fastq-input
 kraken/%_kraken.out: $(ctg_folder)/%.fa
 	mkdir -p kraken
-	@echo -e "\nClassifying $* with Kraken\n\n" > $(log_file)
-	kraken --preload --db $(kraken_db) --threads $(threads) $^ > $@ 2>> $(log_file)
+	@echo -e "\nClassifying $* with Kraken\n\n"
+	kraken --preload --db $(kraken_db) --threads $(threads) $^ > $@
 
 %_kraken.report: %_kraken.out
-	@echo -e "\nCreating Kraken report for $* \n\n" > $(log_file)
-	kraken-report --db $(kraken_db) $^ > $@ 2>> $(log_file)
+	@echo -e "\nCreating Kraken report for $* \n\n"
+	kraken-report --db $(kraken_db) $^ > $@
 
 #*************************************************************************
 #FragGeneScan
@@ -153,12 +148,12 @@ kraken/%_kraken.out: $(ctg_folder)/%.fa
 #Contig analysis
 fgs/%_fgs.faa: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
+	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10
 
 #Read analysis
 fgs/%_fgs.faa : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10 2>> $(log_file)
+	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10
 
 #*************************************************************************
 #Phmmer
@@ -168,12 +163,12 @@ fgs/%_fgs.faa : $(read_folder)/%.fa
 #Contigs against swissprot
 phmmer/%_fgs_phmmer_sprot.tbl : fgs/%_fgs.faa $(swissprot_faa)
 	mkdir -p phmmer
-	$(PHMMER_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null 2>> $(log_file)
+	$(PHMMER_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
 
 #Contigs against refseq virus proteins
 phmmer/%_fgs_phmmer_refseqvir.tbl : fgs/%_fgs.faa $(refseq_virus_faa)
 	mkdir -p phmmer
-	$(PHMMER_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null 2>> $(log_file)
+	$(PHMMER_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
 
 #*************************************************************************
 #HMMSCAN
@@ -183,12 +178,12 @@ phmmer/%_fgs_phmmer_refseqvir.tbl : fgs/%_fgs.faa $(refseq_virus_faa)
 #Contigs against pfam
 hmmscan/%_fgs_hmmscan_pfam.tbl : $(pfam_hmm_db) fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(HMMSCAN_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null 2>> $(log_file)
+	$(HMMSCAN_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
 
 #Contigs against vFam (Skewes-Cox,2014)
 hmmscan/%_fgs_hmmscan_vfam.tbl : $(vfam_hmm_db) fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(HMMSCAN_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null 2>> $(log_file)
+	$(HMMSCAN_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
 
 #*************************************************************************
 #BlastN - Nucleotides
@@ -196,17 +191,17 @@ hmmscan/%_fgs_hmmscan_vfam.tbl : $(vfam_hmm_db) fgs/%_fgs.faa
 #Reads to Refseq Viral nucleotides
 blastn/%_blastn_refseqvir.xml: $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@
 
 #Contigs to Refseq Viral nucleotides
 blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@ 2>> $(log_file)
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@
 
 #Contigs to nt
 blastn/%_blastn_nt.xml: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $@ 2>> $(log_file)
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $@
 
 #*************************************************************************
 #BlastX - Proteins
@@ -214,27 +209,27 @@ blastn/%_blastn_nt.xml: $(ctg_folder)/%.fa
 #Contigs to NR
 blastx/%_blastx_nr.xml : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@
 
 #Reads to NR
 blastx/%_blastx_nr.xml : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@
 
 #Contigs to Swissprot
 blastx/%_blastx_sprot.xml : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@
 
 #Contigs to Refseq Virus Proteins
 blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
 
 #Reads to Refseq Virus Proteins
 blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
+	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
 
 #*************************************************************************
 #Diamond (Tubingen) - Proteins
@@ -244,26 +239,26 @@ blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
 #--seg yes/no for low complexity masking
 diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes
 
 diamond/%_diamond_nr.sam : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes 2>> $(log_file)
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --sam $@ --tmpdir $(TMP_DIR) --seg yes
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
 #*************************************************************************
 blastp/%_fgs_blastp_nr.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@ 2>> $(log_file)
+	$(BLASTP_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@
 
 blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@ 2>> $(log_file)
+	$(BLASTP_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@
 
 blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@ 2>> $(log_file)
+	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
 
 #*************************************************************************
 #CLEANING RULES

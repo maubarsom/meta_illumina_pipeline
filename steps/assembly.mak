@@ -47,10 +47,6 @@ OUT_PREFIX:= $(IN_PREFIX)_$(step)
 INPUT_PAIRED_END := $(read_folder)/$(IN_PREFIX)_pe.fq
 INPUT_SINGLE_END := $(read_folder)/$(IN_PREFIX)_se.fq
 
-#Logging
-log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
-log_file := >( tee -a $(log_name) >&2 )
-
 #Run params
 ifndef threads
 	$(error Define threads variable in make.cfg file)
@@ -116,12 +112,12 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #MetaRay
 #*************************************************************************
 raymeta/Contigs.fasta: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
-	@echo -e "\nAssembling reads with Ray Meta\n\n" > $(log_file)
-	mpiexec -n 16 Ray Meta -k $(ray_kmer) -i $(INPUT_PAIRED_END) -s $(INPUT_SINGLE_END) -o $(dir $@) 2>> $(log_file)
+	@echo -e "\nAssembling reads with Ray Meta\n\n"
+	mpiexec -n 16 Ray Meta -k $(ray_kmer) -i $(INPUT_PAIRED_END) -s $(INPUT_SINGLE_END) -o $(dir $@)
 
 #Ray Assembler duplicates contigs for some reason, probably due to MPI
 $(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
-	../scripts/deduplicate_raymeta_ctgs.py -o $@ $^ 2>> $(log_file)
+	../scripts/deduplicate_raymeta_ctgs.py -o $@ $^
 
 #*************************************************************************
 #Fermi - only pe
@@ -130,8 +126,8 @@ $(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
 #Qualities are not neccessary for Kraken/Blast classification
 fermipe/fmdef.p4.fa.gz: $(INPUT_PAIRED_END)
 	mkdir -p $(dir $@)
-	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) -c ../$^ > assembly.mak 2>> $(log_file)
-	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
+	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) -c ../$^ > assembly.mak
+	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@)
 
 $(OUT_PREFIX)_fermipe_contigs.fa: fermipe/fmdef.p4.fa.gz
 	gunzip -c $^ > $@
@@ -144,8 +140,8 @@ $(OUT_PREFIX)_fermipe_contigs.fa: fermipe/fmdef.p4.fa.gz
 #Qualities are not neccessary for Kraken/Blast classification
 fermi/fmdef.p2.mag.gz: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 	mkdir -p $(dir $@)
-	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) $(addprefix ../,$^) > assembly.mak 2>> $(log_file)
-	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@) 2> $(log_file)
+	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) $(addprefix ../,$^) > assembly.mak
+	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@)
 
 $(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
 	ln -s $^ fermi_all.fq.gz
@@ -208,34 +204,34 @@ $(OUT_PREFIX)_masurca_contigs.fa: masurca/CA/10-gapclose/genome.ctg.fasta
 #pe-mode=2 : interleaved
 sga/$(sample_name)_sga.fq: $(INPUT_PAIRED_END)
 	mkdir -p sga/
-	$(SGA_BIN) preprocess --pe-mode 2 -o $@ $^ 2>> $(log_file)
+	$(SGA_BIN) preprocess --pe-mode 2 -o $@ $^
 
 #2) Build the index that will be used for error correction
 # Error corrector does not require the reverse BWT
 %_sga.sai: %_sga.fq
-	cd $(dir $@) && $(SGA_BIN) index -a ropebwt -t $(threads) --no-reverse $(notdir $^) 2>> $(log_file)
+	cd $(dir $@) && $(SGA_BIN) index -a ropebwt -t $(threads) --no-reverse $(notdir $^)
 
 # Perform error correction with a 41-mer.
 # The k-mer cutoff parameter is learned automatically
 %.ec.fq : %_sga.fq %_sga.sai
-	cd $(dir $@) && $(SGA_BIN) correct -k $(sga_ec_kmer) --discard --learn -t $(threads) -o $(notdir $@) $(notdir $<) 2>> $(log_file)
+	cd $(dir $@) && $(SGA_BIN) correct -k $(sga_ec_kmer) --discard --learn -t $(threads) -o $(notdir $@) $(notdir $<)
 
 # Index the corrected data
 %.ec.sai: %.ec.fq
-	cd $(dir $@) && $(SGA_BIN) index -a ropebwt -t $(threads) $(notdir $^) 2>> $(log_file)
+	cd $(dir $@) && $(SGA_BIN) index -a ropebwt -t $(threads) $(notdir $^)
 
 # Remove exact-match duplicates and reads with low-frequency k-mers
 %.ec.filter.pass.fa: %.ec.fq %.ec.sai
 	cd $(dir $@) && $(SGA_BIN) filter -x $(sga_cov_filter) -t $(threads) --homopolymer-check \
-		--low-complexity-check $(notdir $<) 2>> $(log_file)
+		--low-complexity-check $(notdir $<)
 
 # Compute the structure of the string graph
 %.ec.filter.pass.asqg.gz: %.ec.filter.pass.fa
-	cd $(dir $@) && $(SGA_BIN) overlap -m $(sga_min_overlap) -t $(threads) $(notdir $^) 2>> $(log_file)
+	cd $(dir $@) && $(SGA_BIN) overlap -m $(sga_min_overlap) -t $(threads) $(notdir $^)
 
 # Perform the contig assembly
 sga/%-contigs.fa: sga/%.ec.filter.pass.asqg.gz
-	cd $(dir $@) && $(SGA_BIN) assemble -m $(sga_assemble_overlap) --min-branch-length $(TRIM_LENGTH) -o $* $(notdir $^) 2>> $(log_file)
+	cd $(dir $@) && $(SGA_BIN) assemble -m $(sga_assemble_overlap) --min-branch-length $(TRIM_LENGTH) -o $* $(notdir $^)
 
 $(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 	ln $^ $@
@@ -246,7 +242,7 @@ $(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
 #Seqtk is used to sample sequences > 500bp
 #Awk renames contigs to make them friendly for RAPSEARCH and other tools that do not support spaces in the names
 %_ctgs_filt.fa : %_contigs.fa
-	$(SEQTK_BIN) seq -L 500 $^ | 	awk -vPREFIX=$*  'BEGIN {counter=1; split(PREFIX,fields,"_asm_"); ASM=fields[2];} /^>/ {print ">" ASM "_" counter ;counter+=1;} ! /^>/{print $0;}' > $@ 2>> $(log_file)
+	$(SEQTK_BIN) seq -L 500 $^ | 	awk -vPREFIX=$*  'BEGIN {counter=1; split(PREFIX,fields,"_asm_"); ASM=fields[2];} /^>/ {print ">" ASM "_" counter ;counter+=1;} ! /^>/{print $0;}' > $@
 
 #*************************************************************************
 #Extract singletons
@@ -256,15 +252,15 @@ $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt: $(OUT_PREFIX)_allctgs.fa
 
 singletons/pe_to_contigs.sam: $(INPUT_PAIRED_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< > $@ 2>> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< > $@
 
 singletons/se_to_contigs.sam: $(INPUT_SINGLE_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@ 2>> $(log_file)
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@
 
 $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq: $(TMP_DIR)/singletons_%.fq: singletons/%_to_contigs.sam
-	$(SAMTOOLS_BIN) view -F 256 -hSb $^ | $(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $(basename $@).bam - 2>> $(log_file)
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
+	$(SAMTOOLS_BIN) view -F 256 -hSb $^ | $(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $(basename $@).bam -
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True
 
 singletons/singletons_%.fa : $(TMP_DIR)/singletons_%.fq
 	$(SEQTK_BIN) seq -A $^ > $@

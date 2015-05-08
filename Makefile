@@ -28,14 +28,8 @@ endif
 export sample_name
 
 ifndef read_folder
-read_folder := reads/
-$(warning 'Read folder is assumed to be $(read_folder)')
-endif
-
-input_files := $(wildcard $(read_folder)/*.fastq.gz) $(wildcard $(read_folder)/*.fq.gz) $(wildcard $(read_folder)/*.fq) $(wildcard $(read_folder)/*.fastq)
-
-ifneq "$(words $(input_files))" "2"
-$(error Invalid number of paired-end read files in reads folder)
+	read_folder := reads/
+	$(warning 'Read folder is assumed to be $(read_folder)')
 endif
 
 #Run params from
@@ -44,52 +38,47 @@ $(error Config file variable 'cfg_file' not set)
 endif
 include $(cfg_file)
 
-#Additional parameter: tax_assign_target
-
-#Logging info
-export log_name := $(CURDIR)$(sample_name)_$(shell date +%s).log
-export log_file := >( tee -a $(log_name) >&2 )
-
-#Avoid the parallel execution of rules in this makefile
-.NOTPARALLEL:
+#Logging
+log_name = $@/$(sample_name)_$(shell date +%s).log
+log_file = >(tee -a $(log_name) >&2)
 
 .PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_assign metaphlan
 
-all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign
+all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign metaphlan
 
 #QC raw reads
-raw_qc: $(input_files)
+raw_qc: $(read_folder)
 	mkdir -p $@
-	cd raw_qc && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw basic
+	cd raw_qc && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw basic &>> $(log_file)
 	-cd raw_qc && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw clean-tmp
 
 #Quality filtering
-quality_filtering: $(input_files)
+quality_filtering: $(read_folder)
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/
+	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ &>> $(log_file)
 
 #QC Quality filtering
 qf_qc: quality_filtering
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf basic
+	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf basic &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf clean-tmp
 
 #Contamination removal (human)
 contamination_rm: quality_filtering
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf
+	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf &>> $(log_file)
 
 #Assembly step
 assembly: contamination_rm
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont
+	cd $@ && $(MAKE) -rf ../steps/assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont &>> $(log_file)
 
 #Taxonomic / Functional Annotation
 tax_assign: assembly
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm $(tax_assign_target)
-	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
+	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm $(tax_assign_target) &>> $(log_file)
+	-cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
 
 metaphlan:
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/metaphlan.mak read_folder=../reads/ raw
+	cd $@ && $(MAKE) -rf ../steps/metaphlan.mak read_folder=../reads/ raw &>> $(log_file)

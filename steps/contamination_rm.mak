@@ -52,10 +52,6 @@ R1 := $(read_folder)/$(IN_PREFIX)_R1.fq.gz
 R2 := $(read_folder)/$(IN_PREFIX)_R2.fq.gz
 singles := $(read_folder)/$(IN_PREFIX)_single.fq.gz
 
-#Log file
-log_name := $(CURDIR)/$(OUT_PREFIX)_$(shell date +%s).log
-log_file := >( tee -a $(log_name) >&2 )
-
 #Intermediate file names
 bwa_hg:= $(IN_PREFIX)_bwahg
 stampy_hg := $(IN_PREFIX)_bwa
@@ -92,54 +88,54 @@ $(bwa_hg)_pe.sam: $(R1) $(R2)
 $(bwa_hg)_se.sam: $(singles)
 
 $(bwa_hg)_pe.sam $(bwa_hg)_se.sam:
-	@echo -e "\nMapping $^ to human genome with BWA MEM @"`date`"\n\n" >> $(log_file)
-	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_hg_idx) $^ > $@ 2> $(log_file)
+	@echo -e "\nMapping $^ to human genome with BWA MEM @"`date`"\n\n"
+	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_hg_idx) $^ > $@
 
 #Prepare bwa output for Stampy
 $(bwa_hg)_pe.bam $(bwa_hg)_se.bam: $(bwa_hg)_%.bam: $(bwa_hg)_%.sam
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^ 2>> $(log_file)
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^
 
 #*************************************************************************
 #Improve BWA mappings with Stampy
 #*************************************************************************
 $(stampy_hg)_%.sam: $(bwa_hg)_%.bam
-	@echo -e "\nCorrecting $^ with Stampy @"`date`"\n\n" >> $(log_file)
-	$(STAMPY_BIN) -t $(threads) -g $(stampy_hg_idx) -h $(stampy_hg_hash) --bamkeepgoodreads -o $@ -M $^ 2>> $(log_file)
+	@echo -e "\nCorrecting $^ with Stampy @"`date`"\n\n"
+	$(STAMPY_BIN) -t $(threads) -g $(stampy_hg_idx) -h $(stampy_hg_hash) --bamkeepgoodreads -o $@ -M $^
 
 #*************************************************************************
 #Convert to bam removing secondary mappings
 #*************************************************************************
 $(stampy_hg)_pe.bam $(stampy_hg)_se.bam: %.bam:%.sam
-	@echo -e "\nRemoving secondary mappings from $^ @ `date` \n\n" >> $(log_file)
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^ 2> $(log_file)
+	@echo -e "\nRemoving secondary mappings from $^ @ `date` \n\n"
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^
 
 #*************************************************************************
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
 $(no_human)_pe.bam $(no_human)_se.bam: $(no_human)_%.bam  : $(bwa_hg)_%.bam
-	@echo -e "\nRemove properly mapped pairs to human\n\n" >> $(log_file)
-	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^ 2> $(log_file)
+	@echo -e "\nRemove properly mapped pairs to human\n\n"
+	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^
 
 $(no_human)_%.fq : $(no_human)_%.bam
-	@echo -e "\nWrite human-free fastq\n\n" >> $(log_file)
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
+	@echo -e "\nWrite human-free fastq\n\n"
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True
 
 #*************************************************************************
 #Map reads to contaminants reference
 #*************************************************************************
 $(bwa_contaminants)_%.bam: $(no_human)_%.fq
-	@echo -e "\nMapping $^ to contaminants with BWA MEM @"`date`"\n\n" >> $(log_file)
-	$(BWA_BIN) mem -t $(threads) -T 30 -M $(interleaved_flag) $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam 2>> $(log_file)
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants_$*.sam 2> $(log_file)
+	@echo -e "\nMapping $^ to contaminants with BWA MEM @"`date`"\n\n"
+	$(BWA_BIN) mem -t $(threads) -T 30 -M $(interleaved_flag) $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam
+	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants_$*.sam
 	-rm $(TMP_DIR)/contaminants_$*.sam
 
 #*************************************************************************
 #Extract unmapped reads using Picard Tools
 #*************************************************************************
 $(no_contaminants)_pe.bam $(no_contaminants)_se.bam: $(no_contaminants)_%.bam : $(bwa_contaminants)_%.bam
-	@echo -e "\nRemove properly mapped pairs to contaminats\n\n" >> $(log_file)
-	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^ 2> $(log_file)
+	@echo -e "\nRemove properly mapped pairs to contaminats\n\n"
+	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^
 
 $(no_contaminants)_%.fq : $(no_contaminants)_%.bam
-	@echo -e "\nWrite contaminant-free fastq\n\n" >> $(log_file)
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True 2>> $(log_file)
+	@echo -e "\nWrite contaminant-free fastq\n\n"
+	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True

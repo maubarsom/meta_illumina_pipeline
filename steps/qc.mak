@@ -61,9 +61,6 @@ gz_filtered_reads := $(notdir $(basename $(filter %.gz,$(R1) $(R2))) $(filter-ou
 fastqc_targets := $(call fq2fastqc,$(gz_filtered_reads))
 $(info $(fastqc_targets))
 
-#Logging
-log_name := $(CURDIR)/qc_$(step)_$(shell date +%s).log
-log_file := >( tee -a $(log_name) >&2 )
 
 #Run params
 ifndef threads
@@ -103,7 +100,7 @@ plot_kmer_histogram.R:
 #FASTQC
 #*************************************************************************
 
-FASTQC_RECIPE = $(FASTQC_BIN) --noextract -k 10 -o ./ $^ 2>> $(log_file)
+FASTQC_RECIPE = $(FASTQC_BIN) --noextract -k 10 -o ./ $^
 
 %_fastqc.zip: $(read_folder)/%.fastq.gz
 	$(FASTQC_RECIPE)
@@ -122,16 +119,16 @@ FASTQC_RECIPE = $(FASTQC_BIN) --noextract -k 10 -o ./ $^ 2>> $(log_file)
 #*************************************************************************
 # First, preprocess the data to remove ambiguous basecalls
 $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
-	$(SGA_BIN) preprocess --pe-mode 1 -o $@ $^ >&2 2>> $(log_file)
+	$(SGA_BIN) preprocess --pe-mode 1 -o $@ $^ >&2
 
 # Build the index that will be used for error correction
 # Error corrector does not require the reverse BWT
 %_sga.sai: %_sga.fq
-	$(SGA_BIN) index -a ropebwt -t $(threads) --no-reverse $(notdir $^) >&2 2>> $(log_file)
+	$(SGA_BIN) index -a ropebwt -t $(threads) --no-reverse $(notdir $^) >&2
 
 #Run SGA preqc
 %_sga.preqc: %_sga.fq %_sga.sai
-	$(SGA_BIN) preqc -t $(threads) --force-EM $< > $@ 2>> $(log_file)
+	$(SGA_BIN) preqc -t $(threads) --force-EM $< > $@
 
 #Create SGA preqc report
 %_sga_preqc.pdf: %_sga.preqc
@@ -141,10 +138,10 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 #JELLYFISH 2
 #*************************************************************************
 %_k17.jf: %_sga.fq
-	$(JELLYFISH2_BIN) count -s 8G -C -m 17 -t $(threads) -o $@ $^ 2>> $(log_file)
+	$(JELLYFISH2_BIN) count -s 8G -C -m 17 -t $(threads) -o $@ $^
 
 %_k17.hist: %_k17.jf
-	$(JELLYFISH2_BIN) histo -t $(threads) $^ -o $@ 2>> $(log_file)
+	$(JELLYFISH2_BIN) histo -t $(threads) $^ -o $@
 
 %_k17.hist.pdf: %_k17.hist | plot_kmer_histogram.R
 	Rscript plot_kmer_histogram.R $^ $@
