@@ -34,7 +34,7 @@ step:=qf
 endif
 
 ifndef STRATEGY
-$(info Default quality filtering strategy is cutadapt+nesoni+flash)
+$(info Default quality filtering strategy is nesoni+cutadapt+flash)
 STRATEGY=3_mergepairs
 endif
 
@@ -54,19 +54,8 @@ ifndef threads
 	$(error Define threads variable in make.cfg file)
 endif
 
-#Prinseq params
-#out_format: fasta 1, fastq 3
-#Remove duplicates (derep) : 1=exact dup, 2= 5' dup 3= 3' dup 4= rev comp exact dup
-#Low complexity filters(lc_method): dust, entropy
-prinseq_params:= -verbose -out_format 3 -log prinseq.log -min_len 75 -derep 1 -lc_method dust -lc_threshold 39
-
-#Pandaseq
+#Pair merging parameters
 pairmerge_min_ovlp := 10
-
-
-#SGA parameters
-sga_ec_kmer := 41
-sga_cov_filter := 2
 
 #Output name generators (notice the = instead of := to set the appropriate directory)
 nesoni_out_prefix = $(dir $@)$*
@@ -87,56 +76,35 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #*************************************************************************
 #Calls to trimmers
 #*************************************************************************
-1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz: $(R1) $(R2)
+#Light quality trimming, phred > 5
+1_nesoni/%_R1.fq.gz 1_nesoni/%_R2.fq.gz 1_nesoni/%_single.fq.gz: $(R1) $(R2)
 	mkdir -p $(dir $@)
-	#Remove Illumina TruSeq Barcoded Adapter from fwd pair
-	$(CUTADAPT_BIN) --cut=6 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r1.fq.gz $<
-	#Remove reverse complement of Illumina TruSeq Universal Adapter from reverse pair
-	$(CUTADAPT_BIN) --cut=6 -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT --overlap=5 --error-rate=0.1 -o $(TMP_DIR)/cutadapt_r2.fq.gz $(word 2,$^)
+	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 5 --length 50 \
+		--out-separate yes $(nesoni_out_prefix) pairs: $^
+
+2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz: 1_nesoni/%_R1.fq.gz 1_nesoni/%_R2.fq.gz 1_nesoni/%_single.fq.gz
+	mkdir -p $(dir $@)
+	#Remove Illumina double(or single index) adapters from fwd and rev pairs
+	$(CUTADAPT_BIN) --cut=6 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
+									--overlap=5 --error-rate=0.1 --minimum-length 50 \
+									-o $(TMP_DIR)/cutadapt_r1.fq.gz -p $(TMP_DIR)/cutadapt_r2.fq.gz $< $(word 2,$^)
+	#Remove Illumina double(or single index) adapters from singletons
+	$(CUTADAPT_BIN) --cut=6 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
+									--overlap=5 --error-rate=0.1 --minimum-length 50 \
+									-o $(TMP_DIR)/cutadapt_single.fq.gz $(word 3,$^)
 	#Remove PCR overhang adapter for all reads
 	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R1.fq.gz $(TMP_DIR)/cutadapt_r1.fq.gz
 	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R2.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
+	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/cutadapt_single.fq.gz
 	-rm $(TMP_DIR)/cutadapt_*.fq.gz
 
-#You have to specify quality is phred33 because with cutadapt clipped fragments nesoni fails to detect encoding
-2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_single.fq.gz: 1_cutadapt/%_R1.fq.gz 1_cutadapt/%_R2.fq.gz
-	mkdir -p $(dir $@)
-	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 20 --length 75 \
-		--out-separate yes $(nesoni_out_prefix) pairs: $^
-
-3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_single.fq.gz: 2_nesoni/%_R1.fq.gz 2_nesoni/%_R2.fq.gz 2_nesoni/%_single.fq.gz
+3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_single.fq.gz: 2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz
 	mkdir -p $(dir $@)
 	$(FLASH_BIN) -m $(pairmerge_min_ovlp) -M $(READ_LEN)  $(word 1,$^) $(word 2,$^) -o out -d $(dir $@)
 	cd $(dir $@) && mv out.notCombined_1.fastq $*_R1.fq && gzip $*_R1.fq
 	cd $(dir $@) && mv out.notCombined_2.fastq $*_R2.fq && gzip $*_R2.fq
 	cd $(dir $@) && mv out.extendedFrags.fastq $*_merged.fq
 	cd $(dir $@) && gunzip -c ../$(word 3,$^) | cat $*_merged.fq | gzip > $*_single.fq.gz
-
-#*************************************************************************
-#SGA quality filtering steps - not used
-#*************************************************************************
-#1) Preprocess the data to remove ambiguous basecalls
-sga_qc/$(sample_name)_sga.fq: $(R1) $(R2)
-	$(SGA_BIN) preprocess --pe-mode 1 -o $@ $^
-
-#2) Build the index that will be used for error correction
-# Error corrector does not require the reverse BWT
-%_sga.sai: %_sga.fq
-	cd $(dir $@) && $(SGA_BIN) index -a ropebwt -t $(threads) --no-reverse $(notdir $^)
-
-# Perform error correction with a 41-mer.
-# The k-mer cutoff parameter is learned automatically
-sga_qc/$(sga_1).k$(sga_ec_kmer).ec.fq: %.k$(sga_ec_kmer).ec.fq : %.fq %.sai
-	$(SGA_BIN) correct -k $(sga_ec_kmer) --discard --learn -t $(threads) -o $@ $<
-
-# Index the corrected data
-sga_qc/$(sga_1).k$(sga_ec_kmer).ec.sai: %.k$(sga_ec_kmer).ec.sai : %.k$(sga_ec_kmer).ec.fq
-	$(SGA_BIN) index -a ropebwt -t $(threads) $^
-
-# Remove exact-match duplicates and reads with low-frequency k-mers
-sga_qc/$(sga_1).k$(sga_ec_kmer).ec.filter.pass.fa: $(sga_1).k$(sga_ec_kmer).ec.fq $(sga_1).k$(sga_ec_kmer).ec.sai
-	$(SGA_BIN) filter -x $(sga_cov_filter) -t $(threads) --homopolymer-check \
-		--low-complexity-check $<
 
 .PHONY: clean
 clean:
