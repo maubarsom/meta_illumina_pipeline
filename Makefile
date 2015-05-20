@@ -28,8 +28,8 @@ endif
 export sample_name
 
 ifndef read_folder
-	read_folder := reads/
-	$(warning 'Read folder is assumed to be $(read_folder)')
+read_folder := reads/
+$(warning 'Read folder is assumed to be $(read_folder)')
 endif
 
 #Run params from
