@@ -152,7 +152,6 @@ $(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
 #Megahit
 #*************************************************************************
 megahit/final.contigs.fa: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
-	mkdir -p $(dir $@)
 	$(MEGAHIT_BIN) -m 5e10 -l $$(( 2*$(READ_LEN) )) --k-step 4 --k-max 81 --input-cmd "cat $^" --cpu-only -t $(threads) -o megahit
 
 $(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
