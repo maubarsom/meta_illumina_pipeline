@@ -39,7 +39,7 @@ endif
 include $(cfg_file)
 
 #Logging
-log_name = $@/$(sample_name)_$(shell date +%s).log
+log_name = $(sample_name)_$@_$(shell date +%s).log
 log_file = >(tee -a $(log_name) >&2)
 
 .PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_assign metaphlan
