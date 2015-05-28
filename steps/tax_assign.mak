@@ -239,11 +239,11 @@ blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
 #--seg yes/no for low complexity masking
 diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< -daa $(basename $@).daa --out $@ --outfmt sam --tmpdir $(TMP_DIR) --seg yes
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $(basename $@).daa --out $@ --outfmt sam --tmpdir $(TMP_DIR) --seg yes
 
 diamond/%_diamond_nr.sam : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< -daa $(basename $@).daa --out $@ --outfmt sam --tmpdir $(TMP_DIR) --seg yes
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $(basename $@).daa --out $@ --outfmt sam --tmpdir $(TMP_DIR) --seg yes
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
