@@ -237,13 +237,16 @@ blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
 #Contigs to NR
 #Can add --sensitive flag for slower but more accurate results
 #--seg yes/no for low complexity masking
-diamond/%_diamond_nr.sam : $(ctg_folder)/%.fa
+diamond/%_diamond_nr.daa : $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< -daa $(basename $@).daa --out $@ --outfmt sam --tmpdir $(TMP_DIR) --seg yes
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
 
-diamond/%_diamond_nr.sam : $(read_folder)/%.fa
+diamond/%_diamond_nr.daa : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< -daa $(basename $@).daa --out $@ --outfmt sam --tmpdir $(TMP_DIR) --seg yes
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
+
+diamond/%.sam : diamond/%.daa
+	$(DIAMOND_BIN) view --daa $^ --out $@ --outfmt sam 
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
