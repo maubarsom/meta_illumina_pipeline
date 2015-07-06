@@ -45,80 +45,104 @@ endif
 #Outfile
 OUT_PREFIX:=$(sample_name)_$(step)
 
-#Reads
-R1:= $(wildcard $(read_folder)/*R1*.f*q.gz  $(read_folder)/*_1.f*q.gz)
-R2:= $(wildcard $(read_folder)/*R2*.f*q.gz  $(read_folder)/*_2.f*q.gz)
+#Input read autodetection settings
+fq_ext:=fastq.gz
+#Only used for raw mode
+R1_filter:=_1.
+R2_filter:=_2.
 
-SINGLE := $(wildcard $(read_folder)/*single.f*q.gz )
+#For raw mode
+# filter_fx( subst, list) : Returns items in list that contain subst
+filter_fx = $(foreach file,$(2),$(if $(findstring $(1),$(file)),$(file)))
 
-ifneq ($(words $(R1) $(R2)),2)
-$(error More than one R1 or R2 $(words $(R1) $(R2)))
-endif
+R1_files := $(call filter_fx,$(R1_filter),$(wildcard $(read_folder)/*.$(fq_ext)))
+R2_files := $(call filter_fx,$(R2_filter),$(wildcard $(read_folder)/*.$(fq_ext)))
 
-#Hack to decode target fastqc depending on the file extension of the reads f[ast]q[.gz]
-fq2fastqc = $(patsubst %.fq,%.fq_fastqc.zip,$(patsubst %.fastq,%_fastqc.zip,$(1)))
-gz_filtered_reads := $(notdir $(basename $(filter %.gz,$(R1) $(R2))) $(filter-out %.gz,$(R1) $(R2)))
-fastqc_targets := $(call fq2fastqc,$(gz_filtered_reads))
-$(info $(fastqc_targets))
-
+#Definitions to create fastqc file targets depending on the fastq extension
+fastqc_ext := $(if $(findstring fastq,$(fq_ext)),_fastqc.zip,.fq_fastqc.zip)
+fastqc_txt_ext := $(if $(findstring fastq,$(fq_ext)),_fastqc.txt,.fq_fastqc.txt)
+generate_fastqc_targets = $(patsubst %.$(fq_ext),%$(fastqc_txt_ext),$(notdir $(1)))
+smart_cat := $(if $(findstring gz,$(fq_ext)),zcat,$(if $(findstring bz2,$(fq_ext)),bzcat,cat))
 
 #Run params
 ifndef threads
 	$(error Define threads variable in make.cfg file)
 endif
 
-#Delete produced files if step fails
+#Targets!
+
 .DELETE_ON_ERROR:
-
-#Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
+.PHONY: all fastqc jellyfish2 sga
 
-.INTERMEDIATE: $(OUT_PREFIX)_sga.fq %_sga.sai %_k17.jf %_sga.preqc
+all: fastqc jellyfish2
 
-.PHONY: all fastqc basic kmer_analysis
-
-all: basic kmer_analysis
-
-#Basic
-basic: $(OUT_PREFIX)_pe_stats.txt fastqc
-
-ifdef SINGLE
-basic: $(OUT_PREFIX)_se_stats.txt
+ifdef RAW
+fastqc: $(sample_name)_raw_1$(fastqc_txt_ext) $(sample_name)_raw_2$(fastqc_txt_ext)
+else
+fastqc: $(call generate_fastqc_targets, $(wildcard $(read_folder)/*.$(fq_ext)) )
 endif
 
 #Computationally intensive
-kmer_analysis: $(OUT_PREFIX)_sga_preqc.pdf $(OUT_PREFIX)_k17.hist.pdf
+jellyfish2: $(OUT_PREFIX)_k17.hist.pdf
+sga: $(OUT_PREFIX)_sga_preqc.pdf
 
-fastqc: $(fastqc_targets)
-#*************************************************************************
-#Import helper scripts - Check paths are ok
-#*************************************************************************
-plot_kmer_histogram.R:
-	ln -s ../scripts/plot_kmer_histogram.R
+#********************************************************
+#*********************RAW MODE **************************
+#********************************************************
+#Deals automatically with multiple R1 and R2 files ,
+# merging them together into a single R1 and R2 file
+
+ifdef RAW
+ifneq "$(words $(R1_files))" "$(words $(R2_files))"
+$(error Different number of R1 ($(words $(R1_files))) and R2 ($(words $(R2_files))) files)
+endif
+
+ifeq "0" "$(words $(R1_files))"
+$(error "No R1 or R2 files")
+endif
+
+ifeq "1" "$(words $(R1_files))"
+# If only one R1 and one R2 file, create links to TMP_DIR
+$(TMP_DIR)/$(sample_name)_raw_1.$(fq_ext) : $(R1_files)
+	ln -s $(shell pwd)/$^ $@
+
+$(TMP_DIR)/$(sample_name)_raw_2.$(fq_ext) : $(R2_files)
+	ln -s $(shell pwd)/$^ $@
+else
+# If more than one R1 and R2
+# Merge all Forward and Reverse reads into a single file
+$(TMP_DIR)/$(sample_name)_raw_1.$(fq_ext) : $(R1_files)
+	cat $^ > $@
+
+$(TMP_DIR)/$(sample_name)_raw_2.$(fq_ext) : $(R2_files)
+	cat $^ > $@
+#*********
+endif
+
+endif
 
 #*************************************************************************
-#FASTQC
+# FASTQC
 #*************************************************************************
+FASTQC_RECIPE = $(FASTQC_BIN) --noextract -k 10 -t $(threads) -o ./ $^
 
-FASTQC_RECIPE = $(FASTQC_BIN) --noextract -k 10 -o ./ $^
-
-%_fastqc.zip: $(read_folder)/%.fastq.gz
+#QF mode
+%$(fastqc_ext): $(read_folder)/%.$(fq_ext)
 	$(FASTQC_RECIPE)
 
-%_fastqc.zip: $(read_folder)/%.fastq
+#Raw mode
+$(sample_name)_raw_%$(fastqc_ext): $(TMP_DIR)/$(sample_name)_raw_%.$(fq_ext)
 	$(FASTQC_RECIPE)
 
-%.fq_fastqc.zip: $(read_folder)/%.fq.gz
-	$(FASTQC_RECIPE)
-
-%.fq_fastqc.zip: $(read_folder)/%.fq
-	$(FASTQC_RECIPE)
+%$(fastqc_txt_ext): %$(fastqc_ext)
+	unzip -p $<  $(basename $<)/fastqc_data.txt > $@
 
 #*************************************************************************
-#SGA PREQC
+#SGA PREQC - only in RAW mode
 #*************************************************************************
 # First, preprocess the data to remove ambiguous basecalls
-$(OUT_PREFIX)_sga.fq: $(R1) $(R2)
+$(OUT_PREFIX)_sga.fq: $(TMP_DIR)/$(sample_name)_raw_1.$(fq_ext) $(TMP_DIR)/$(sample_name)_raw_2.$(fq_ext)
 	$(SGA_BIN) preprocess --pe-mode 1 -o $@ $^ >&2
 
 # Build the index that will be used for error correction
@@ -135,10 +159,13 @@ $(OUT_PREFIX)_sga.fq: $(R1) $(R2)
 	$(SGA_PREQC_REPORT_BIN) -o $(basename $@) $^
 
 #*************************************************************************
-#JELLYFISH 2
+#JELLYFISH 2 -
 #*************************************************************************
-%_k17.jf: %_sga.fq
-	$(JELLYFISH2_BIN) count -s 8G -C -m 17 -t $(threads) -o $@ $^
+plot_kmer_histogram.R:
+	ln -s ../scripts/plot_kmer_histogram.R
+
+%_k17.jf: $(wildcard $(read_folder)/*.$(fq_ext))
+	$(smart_cat) $^ | $(JELLYFISH2_BIN) count -s 8G -C -m 17 -t $(threads) -o $@
 
 %_k17.hist: %_k17.jf
 	$(JELLYFISH2_BIN) histo -t $(threads) $^ -o $@
