@@ -120,8 +120,8 @@ blastp_sprot : $(call read_outfiles,blastp,fgs_blastp_sprot.xml,pe se)
 blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
 blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
 
-diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam)
-diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam,pe se)
+diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam.gz)
+diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam.gz,pe se)
 
 blastx_sprot : $(call ctg_outfile,blastx,blastx_sprot.xml)
 blastx_sprot : $(call read_outfiles,blastx,blastx_sprot.xml,pe se)
