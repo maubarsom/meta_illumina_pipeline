@@ -33,6 +33,11 @@ $(warning 'Read folder is assumed to be $(read_folder)')
 endif
 
 #Run params from
+ifndef raw_fq_ext
+raw_fq_ext=fastq.gz
+endif
+
+#Run params from
 ifndef cfg_file
 $(error Config file variable 'cfg_file' not set)
 endif
@@ -49,8 +54,8 @@ all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign metaphl
 #QC raw reads
 raw_qc: $(read_folder)
 	mkdir -p $@
-	cd raw_qc && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw basic &>> $(log_file)
-	-cd raw_qc && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw clean-tmp
+	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw fq_ext=$(raw_fq_ext) RAW=1 fastqc &>> $(log_file)
+	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw clean-tmp
 
 #Quality filtering
 quality_filtering: $(read_folder)
@@ -60,7 +65,7 @@ quality_filtering: $(read_folder)
 #QC Quality filtering
 qf_qc: quality_filtering
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf basic &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf fq_ext=fq.gz fastqc &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf clean-tmp
 
 #Contamination removal (human)
