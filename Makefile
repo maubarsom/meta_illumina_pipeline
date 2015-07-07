@@ -44,7 +44,8 @@ endif
 include $(cfg_file)
 
 #Logging
-log_name = $(sample_name)_$@_$(shell date +%s).log
+timestamp := $(shell date +%s)
+log_name = $(sample_name)_$@_$(timestamp).log
 log_file = >(tee -a $(log_name) >&2)
 
 .PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_assign metaphlan
@@ -81,7 +82,12 @@ assembly: contamination_rm
 #Taxonomic / Functional Annotation
 tax_assign: assembly
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm $(tax_assign_target) &>> $(log_file)
+	#Blastx(diamond) against NR
+	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm diamond_nr &>> $(log_file)
+	#Blastn against NT
+	#cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm blastn_nt &>> $(log_file)
+	#Kraken against Refseq Bct and VRL
+	#cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm kraken_reports &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
 
 metaphlan:
