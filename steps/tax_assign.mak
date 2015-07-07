@@ -245,8 +245,9 @@ diamond/%_diamond_nr.daa : $(read_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
 
-diamond/%.sam : diamond/%.daa
-	$(DIAMOND_BIN) view --daa $^ --out $@ --outfmt sam 
+diamond/%.sam.gz : diamond/%.daa
+	$(DIAMOND_BIN) view --daa $^ --out $(dir $@)/$*.sam --outfmt sam
+	gzip $(dir $@)/$*.sam
 
 #*************************************************************************
 #BlastP - Predicted ORF to Proteins
