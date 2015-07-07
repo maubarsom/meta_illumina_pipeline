@@ -60,7 +60,7 @@ raw_qc: $(read_folder)
 #Quality filtering
 quality_filtering: $(read_folder)
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ fq_ext=$(raw_fq_ext) &>> $(log_file)
 
 #QC Quality filtering
 qf_qc: quality_filtering

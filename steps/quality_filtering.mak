@@ -41,9 +41,18 @@ endif
 #Outfile
 OUT_PREFIX := $(sample_name)_$(step)
 
+#Input read autodetection settings
+R1_filter:=_1.
+R2_filter:=_2.
+fq_ext:=fastq.gz
+
+#filter_fx( substring, list): Returns all items in list that contains substring
+filter_fx = $(foreach file,$(2),$(if $(findstring $(1),$(file)),$(file)))
+
 #Reads
-R1 := $(wildcard $(read_folder)/*R1*.f*q.gz  $(read_folder)/*_1.f*q.gz)
-R2 := $(wildcard $(read_folder)/*R2*.f*q.gz  $(read_folder)/*_2.f*q.gz)
+R1 := $(call filter_fx,$(R1_filter),$(wildcard $(read_folder)/*.$(fq_ext)))
+R2 := $(call filter_fx,$(R2_filter),$(wildcard $(read_folder)/*.$(fq_ext)))
+
 
 ifneq ($(words $(R1) $(R2)),2)
 $(error More than one R1 or R2 $(words $(R1) $(R2)))
@@ -54,6 +63,9 @@ ifndef threads
 	$(error Define threads variable in make.cfg file)
 endif
 
+#Triming parameters
+MIN_READ_LENGTH := 50
+
 #Pair merging parameters
 pairmerge_min_ovlp := 10
 
@@ -62,8 +74,6 @@ nesoni_out_prefix = $(dir $@)$*
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
-
-#Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
 .PHONY: all
@@ -79,23 +89,23 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 #Light quality trimming, phred > 5
 1_nesoni/%_R1.fq.gz 1_nesoni/%_R2.fq.gz 1_nesoni/%_single.fq.gz: $(R1) $(R2)
 	mkdir -p $(dir $@)
-	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 5 --length 50 \
+	$(NESONI_BIN) clip --adaptor-clip no --homopolymers yes --qoffset 33 --quality 5 --length $(MIN_READ_LENGTH) \
 		--out-separate yes $(nesoni_out_prefix) pairs: $^
 
 2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz: 1_nesoni/%_R1.fq.gz 1_nesoni/%_R2.fq.gz 1_nesoni/%_single.fq.gz
 	mkdir -p $(dir $@)
 	#Remove Illumina double(or single index) adapters from fwd and rev pairs
-	$(CUTADAPT_BIN) --cut=6 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
-									--overlap=5 --error-rate=0.1 --minimum-length 50 \
-									-o $(TMP_DIR)/cutadapt_r1.fq.gz -p $(TMP_DIR)/cutadapt_r2.fq.gz $< $(word 2,$^)
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
+					--overlap=5 --error-rate=0.1 --minimum-length $(MIN_READ_LENGTH) \
+					-o $(TMP_DIR)/cutadapt_r1.fq.gz -p $(TMP_DIR)/cutadapt_r2.fq.gz $< $(word 2,$^)
 	#Remove Illumina double(or single index) adapters from singletons
-	$(CUTADAPT_BIN) --cut=6 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
-									--overlap=5 --error-rate=0.1 --minimum-length 50 \
-									-o $(TMP_DIR)/cutadapt_single.fq.gz $(word 3,$^)
+	$(CUTADAPT_BIN) -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -a AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT \
+					--overlap=5 --error-rate=0.1 --minimum-length $(MIN_READ_LENGTH) \
+					-o $(TMP_DIR)/cutadapt_single.fq.gz $(word 3,$^)
 	#Remove PCR overhang adapter for all reads
-	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R1.fq.gz $(TMP_DIR)/cutadapt_r1.fq.gz
-	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R2.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
-	$(CUTADAPT_BIN) -g ^GCCGGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/cutadapt_single.fq.gz
+	$(CUTADAPT_BIN) --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R1.fq.gz $(TMP_DIR)/cutadapt_r1.fq.gz
+	$(CUTADAPT_BIN) -cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R2.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
+	$(CUTADAPT_BIN) -cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/cutadapt_single.fq.gz
 	-rm $(TMP_DIR)/cutadapt_*.fq.gz
 
 3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_single.fq.gz: 2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz
