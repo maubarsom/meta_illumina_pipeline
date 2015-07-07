@@ -104,8 +104,8 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 					-o $(TMP_DIR)/cutadapt_single.fq.gz $(word 3,$^)
 	#Remove PCR overhang adapter for all reads
 	$(CUTADAPT_BIN) --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R1.fq.gz $(TMP_DIR)/cutadapt_r1.fq.gz
-	$(CUTADAPT_BIN) -cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R2.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
-	$(CUTADAPT_BIN) -cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/cutadapt_single.fq.gz
+	$(CUTADAPT_BIN) --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_R2.fq.gz $(TMP_DIR)/cutadapt_r2.fq.gz
+	$(CUTADAPT_BIN) --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/cutadapt_single.fq.gz
 	-rm $(TMP_DIR)/cutadapt_*.fq.gz
 
 3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_single.fq.gz: 2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz
