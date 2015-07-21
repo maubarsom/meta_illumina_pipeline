@@ -102,8 +102,8 @@ hmmscan_pfam : $(call read_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,pe se)
 hmmscan_vfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_vfam.tbl)
 hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
 
-blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml)
-blastn_nt : $(call read_outfiles,blastn,blastn_nt.xml,pe se)
+blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml.gz)
+blastn_nt : $(call read_outfiles,blastn,blastn_nt.xml.gz,pe se)
 
 blastn_vir : $(call ctg_outfile,blastn,blastn_refseqvir.xml)
 blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
@@ -199,9 +199,10 @@ blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%.fa
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@
 
 #Contigs to nt
-blastn/%_blastn_nt.xml: $(ctg_folder)/%.fa
+blastn/%_blastn_nt.xml.gz: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $@
+	gzip $(dir $@)/$*.xml
 
 #*************************************************************************
 #BlastX - Proteins
