@@ -32,9 +32,19 @@ read_folder := reads/
 $(warning 'Read folder is assumed to be $(read_folder)')
 endif
 
-#Run params from
+#Raw read detection parameters
 ifndef raw_fq_ext
 raw_fq_ext=fastq.gz
+endif
+
+ifndef raw_R1_filter
+#raw_R1_filter=_R1_
+raw_R1_filter=_1.
+endif
+
+ifndef raw_R2_filter
+#raw_R2_filter=_R2_
+raw_R2_filter=_2.
 endif
 
 #Run params from
@@ -55,13 +65,13 @@ all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_assign metaphl
 #QC raw reads
 raw_qc: $(read_folder)
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw fq_ext=$(raw_fq_ext) RAW=1 fastqc &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) RAW=1 fastqc &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw clean-tmp
 
 #Quality filtering
 quality_filtering: $(read_folder)
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ fq_ext=$(raw_fq_ext) &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) &>> $(log_file)
 
 #QC Quality filtering
 qf_qc: quality_filtering
