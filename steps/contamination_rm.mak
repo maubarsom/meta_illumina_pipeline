@@ -47,23 +47,15 @@ ifndef threads
 	$(error Define threads variable in make.cfg file)
 endif
 
+ifndef MAPPER
+$(info Using bowtie2 as default mapper for host removal)
+MAPPER := bowtie2
+endif
+
 #Input files
 R1 := $(read_folder)/$(IN_PREFIX)_R1.fq.gz
 R2 := $(read_folder)/$(IN_PREFIX)_R2.fq.gz
 singles := $(read_folder)/$(IN_PREFIX)_single.fq.gz
-
-#Intermediate file names
-bwa_hg:= $(IN_PREFIX)_bwahg
-stampy_hg := $(IN_PREFIX)_bwa
-no_human := $(IN_PREFIX)_nohuman
-
-bwa_contaminants := $(no_human)_bwa
-no_contaminants := $(no_human)_nocontaminants
-
-#Function to determine interleaved flag for bwa if out file has pe or se
-interleaved_flag = $(if $(filter pe,$*),-p)
-#If paired-end exclude if read mapped in proper pair. If single-end include if unmapped
-samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -73,69 +65,58 @@ samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 
 .PHONY: all
 
+#It can also output separate R1 and R2 for paired-ends insteads of interleaved
+#all: $(addprefix $(OUT_PREFIX)_,R1.fq R2.fq se.fq)
 all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_se.fq
+all: $(addprefix stats/$(OUT_PREFIX)_,pe.bam.flgstat se.bam.flgstat)
 
 #*************************************************************************
-#Create output files from the strategy
-#*************************************************************************
-$(OUT_PREFIX)_%.fq: $(no_contaminants)_%.fq
-	ln -s $^ $@
-
-#*************************************************************************
-#Map to GRCh37 with BWA MEM
+#Map to human genome with BWA MEM
 #*************************************************************************
 $(bwa_hg)_pe.sam: $(R1) $(R2)
 $(bwa_hg)_se.sam: $(singles)
 
-$(bwa_hg)_pe.sam $(bwa_hg)_se.sam:
-	@echo -e "\nMapping $^ to human genome with BWA MEM @"`date`"\n\n"
-	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_hg_idx) $^ > $@
-
-#Prepare bwa output for Stampy
-$(bwa_hg)_pe.bam $(bwa_hg)_se.bam: $(bwa_hg)_%.bam: $(bwa_hg)_%.sam
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^
+bwa/%_pe.bam bwa/%_se.bam:
+	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_contaminants_idx) $^ | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
 
 #*************************************************************************
-#Improve BWA mappings with Stampy
+#Map to human genome with Bowtie2 with --local
 #*************************************************************************
-$(stampy_hg)_%.sam: $(bwa_hg)_%.bam
-	@echo -e "\nCorrecting $^ with Stampy @"`date`"\n\n"
-	$(STAMPY_BIN) -t $(threads) -g $(stampy_hg_idx) -h $(stampy_hg_hash) --bamkeepgoodreads -o $@ -M $^
+#-M : #Max number of valid alignments
+#-t report time
+bowtie2_idx:= /proj/b2012214/db/bowtie2/grch38_phix
+bowtie2_opts:= --local --very-sensitive-local -t -p $(threads)
+
+bowtie2/%_pe.bam: $(R1) $(R2)
+	mkdir -p $(dir $@)
+	$(BOWTIE2_BIN) $(bowtie2_opts) -x $(bowtie2_contaminants_idx) -1 $< -2 $(word 2,$^) | $(SAMTOOLS_BIN) view -hSb -o $@ -
+
+bowtie2/%_se.bam: $(singles)
+	mkdir -p $(dir $@)
+	$(BOWTIE2_BIN) $(bowtie2_opts) -x $(bowtie2_contaminants_idx) -U $< | $(SAMTOOLS_BIN) view -hSb -o $@ -
 
 #*************************************************************************
-#Convert to bam removing secondary mappings
+#Calculate stats
 #*************************************************************************
-$(stampy_hg)_pe.bam $(stampy_hg)_se.bam: %.bam:%.sam
-	@echo -e "\nRemoving secondary mappings from $^ @ `date` \n\n"
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $^
+stats/%.bam.flgstat: $(MAPPER)/%.bam
+	mkdir -p $(dir $@)
+	$(SAMTOOLS_BIN) flagstat $< > $@
 
 #*************************************************************************
-#Extract unmapped reads using Picard Tools
+#Extract unmapped reads using Samtools / Picard Tools
 #*************************************************************************
-$(no_human)_pe.bam $(no_human)_se.bam: $(no_human)_%.bam  : $(bwa_hg)_%.bam
-	@echo -e "\nRemove properly mapped pairs to human\n\n"
-	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^
+$(TMP_DIR)/%_unmapped_pe.bam: $(MAPPER)/%_pe.bam
+	$(SAMTOOLS_BIN) view -f12 -hb -o $@ $^
+	#$(SAMTOOLS_BIN) view -F2 -hb -o $@ $^
 
-$(no_human)_%.fq : $(no_human)_%.bam
-	@echo -e "\nWrite human-free fastq\n\n"
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True
+$(TMP_DIR)/%_unmapped_se.bam: $(MAPPER)/%_se.bam
+	$(SAMTOOLS_BIN) view -f4 -hb -o $@ $^
 
-#*************************************************************************
-#Map reads to contaminants reference
-#*************************************************************************
-$(bwa_contaminants)_%.bam: $(no_human)_%.fq
-	@echo -e "\nMapping $^ to contaminants with BWA MEM @"`date`"\n\n"
-	$(BWA_BIN) mem -t $(threads) -T 30 -M $(interleaved_flag) $(bwa_contaminants_idx) $^ > $(TMP_DIR)/contaminants_$*.sam
-	$(SAMTOOLS_BIN) view -F 256 -hSb -o $@ $(TMP_DIR)/contaminants_$*.sam
-	-rm $(TMP_DIR)/contaminants_$*.sam
+%_R1.fq %_R2.fq: $(TMP_DIR)/%_unmapped_pe.bam
+	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$*_R1.fq SECOND_END_FASTQ=$*_R2.fq
 
-#*************************************************************************
-#Extract unmapped reads using Picard Tools
-#*************************************************************************
-$(no_contaminants)_pe.bam $(no_contaminants)_se.bam: $(no_contaminants)_%.bam : $(bwa_contaminants)_%.bam
-	@echo -e "\nRemove properly mapped pairs to contaminats\n\n"
-	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $@ $^
+%_pe.fq: $(TMP_DIR)/%_unmapped_pe.bam
+	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$@ INTERLEAVE=TRUE
 
-$(no_contaminants)_%.fq : $(no_contaminants)_%.bam
-	@echo -e "\nWrite contaminant-free fastq\n\n"
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$^ FASTQ=$@ INTERLEAVE=True
+%_se.fq: $(TMP_DIR)/%_unmapped_se.bam
+	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$@
