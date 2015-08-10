@@ -259,7 +259,7 @@ singletons/se_to_contigs.sam: $(INPUT_SINGLE_END) $(TMP_DIR)/$(OUT_PREFIX)_allct
 
 $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq: $(TMP_DIR)/singletons_%.fq: singletons/%_to_contigs.sam
 	$(SAMTOOLS_BIN) view -F 256 -hSb $^ | $(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $(basename $@).bam -
-	$(PICARD_SAM2FASTQ_BIN) INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True
+	$(PICARD_BIN) SamToFastq INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True
 
 singletons/singletons_%.fa : $(TMP_DIR)/singletons_%.fq
 	$(SEQTK_BIN) seq -A $^ > $@
