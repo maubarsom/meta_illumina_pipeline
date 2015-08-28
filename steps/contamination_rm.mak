@@ -126,4 +126,4 @@ $(TMP_DIR)/%_unmapped_se.bam: $(MAPPER)/%_se.bam
 # Calculate checksums
 #*************************************************************************
 %.md5: %
-	md5sum %< > $@
+	md5sum $< > $@
