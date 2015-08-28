@@ -102,8 +102,8 @@ hmmscan_pfam : $(call read_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,pe se)
 hmmscan_vfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_vfam.tbl)
 hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
 
-blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml.gz)
-blastn_nt : $(call read_outfiles,blastn,blastn_nt.xml.gz,pe se)
+blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml.gz.md5)
+blastn_nt : $(call read_outfiles,blastn,blastn_nt.xml.gz.md5,pe se)
 
 blastn_vir : $(call ctg_outfile,blastn,blastn_refseqvir.xml)
 blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
@@ -120,8 +120,8 @@ blastp_sprot : $(call read_outfiles,blastp,fgs_blastp_sprot.xml,pe se)
 blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
 blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
 
-diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam.gz)
-diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam.gz,pe se)
+diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam.gz.md5)
+diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam.gz.md5,pe se)
 
 blastx_sprot : $(call ctg_outfile,blastx,blastx_sprot.xml)
 blastx_sprot : $(call read_outfiles,blastx,blastx_sprot.xml,pe se)
@@ -264,6 +264,12 @@ blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
 blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
+
+#*************************************************************************
+# Calculate checksums
+#*************************************************************************
+%.md5: %
+	md5sum %< > $@
 
 #*************************************************************************
 #CLEANING RULES

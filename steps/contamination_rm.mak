@@ -68,13 +68,14 @@ singles := $(read_folder)/$(IN_PREFIX)_single.fq.gz
 #It can also output separate R1 and R2 for paired-ends insteads of interleaved
 #all: $(addprefix $(OUT_PREFIX)_,R1.fq R2.fq se.fq)
 all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_se.fq
-all: $(addprefix stats/$(OUT_PREFIX)_,pe.bam.flgstat se.bam.flgstat)
+all: $(addprefix stats/$(OUT_PREFIX)_,pe.$(MAPPER).bam.flgstat se.$(MAPPER).bam.flgstat)
+all: $(MAPPER)/$(OUT_PREFIX)_pe.bam.md5 $(MAPPER)/$(OUT_PREFIX)_se.bam.md5
 
 #*************************************************************************
 #Map to human genome with BWA MEM
 #*************************************************************************
-$(bwa_hg)_pe.sam: $(R1) $(R2)
-$(bwa_hg)_se.sam: $(singles)
+bwa/%_pe.bam: $(R1) $(R2)
+bwa/%_se.bam: $(singles)
 
 bwa/%_pe.bam bwa/%_se.bam:
 	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_contaminants_idx) $^ | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
@@ -98,7 +99,7 @@ bowtie2/%_se.bam: $(singles)
 #*************************************************************************
 #Calculate stats
 #*************************************************************************
-stats/%.bam.flgstat: $(MAPPER)/%.bam
+stats/%.$(MAPPER).bam.flgstat: $(MAPPER)/%.bam
 	mkdir -p $(dir $@)
 	$(SAMTOOLS_BIN) flagstat $< > $@
 
@@ -120,3 +121,9 @@ $(TMP_DIR)/%_unmapped_se.bam: $(MAPPER)/%_se.bam
 
 %_se.fq: $(TMP_DIR)/%_unmapped_se.bam
 	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$@
+
+#*************************************************************************
+# Calculate checksums
+#*************************************************************************
+%.md5: %
+	md5sum %< > $@
