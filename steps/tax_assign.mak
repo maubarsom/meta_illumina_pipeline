@@ -201,8 +201,8 @@ blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%.fa
 #Contigs to nt
 blastn/%_blastn_nt.xml.gz: $(ctg_folder)/%.fa
 	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $(dir $@)/$*.xml
-	gzip $(dir $@)/$*.xml
+	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $(basename $@)
+	gzip $(basename $@)
 
 #*************************************************************************
 #BlastX - Proteins
