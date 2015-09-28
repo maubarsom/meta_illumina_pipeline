@@ -85,7 +85,6 @@ bwa/%_pe.bam bwa/%_se.bam:
 #*************************************************************************
 #-M : #Max number of valid alignments
 #-t report time
-bowtie2_idx:= /proj/b2012214/db/bowtie2/grch38_phix
 bowtie2_opts:= --local --very-sensitive-local -t -p $(threads)
 
 bowtie2/%_pe.bam: $(R1) $(R2)

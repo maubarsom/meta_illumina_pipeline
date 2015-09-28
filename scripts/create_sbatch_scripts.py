@@ -36,22 +36,43 @@ import logging
 
 #****************Begin of Main ***************
 def main(args):
-	steps = ["qc","qf","rmcont","asm","taxassign" ]
+	steps = ["qc","qf","rmcont","asm","taxassign","metaphlan2" ]
 	modules = {
-		"qc": ["+java/sun_jdk1.7.0_25","+R/3.1.0", "+jellyfish/2.0.0" ],
-		"qf" :["+java/sun_jdk1.7.0_25","+R/3.1.0", "+jellyfish/2.0.0" ],
+		"qc": ["+java/sun_jdk1.7.0_25" ],
+		"qf" :["+FLASH/1.2.11" ],
 		"rmcont":["+bwa/0.7.10","+picard/1.118"],
-		"asm":["-gcc","+bwa/0.7.10","+MaSuRCA/2.2.1","+Ray/2.3.0"],
-#		"asm":["+bwa/0.7.10","MaSuRCA/2.2.1","Ray/2.3.0","abyss/1.3.7-max"],
-		"taxassign":["+blast/2.2.29+","+hmmer/3.1b1-gcc"]
+		"asm":["-gcc","+bwa/0.7.12","+spades/3.6.0","+fermi/1.1-r751-beta"],
+		"taxassign":["+blast/2.2.29+","+diamond/0.7.9"],
+		"metaphlan2" : [],
+	}
+
+	#Folders to add to PATH
+	ext_tool_path = {
+		"qc": 		["/proj/b2011088/tools/anaconda/bin" ],
+		"qf":		["/proj/b2011088/tools/anaconda/bin" ],
+		"rmcont":	["/proj/b2011088/tools/anaconda/bin" ],
+		"asm":		["/proj/b2011088/tools/anaconda/bin",
+					 "/proj/b2011088/tools/megahit/1.0.2"],
+		"taxassign":[ "/proj/b2011088/tools/anaconda/bin" ],
+		"metaphlan2":[ "/proj/b2011088/tools/anaconda/bin" ]
+	}
+
+	step_partition = {
+		"qc": 			"core -n 8",
+		"qf" : 		 	"core -n 2",
+		"rmcont": 	 	"core -n 8",
+		"asm": 		 	"node -n 16",
+		"taxassign":	"node -n 16",
+		"metaphlan2":	"node -n 16"
 	}
 
 	step_duration = {
-		"qc": "06:00:00",
-		"qf" : "06:00:00",
-		"rmcont": "06:00:00",
-		"asm": "06:00:00",
-		"taxassign": "4-00:00:00"
+		"qc": 			"06:00:00",
+		"qf" : 			"06:00:00",
+		"rmcont": 		"06:00:00",
+		"asm": 			"06:00:00",
+		"taxassign":	"4-00:00:00"
+		"metaphlan2":	"3:00:00"
 	}
 
 	step_makefile_rule = {
@@ -71,14 +92,14 @@ def main(args):
 		step_filename = os.path.join(args.output_folder,"run_"+step+".sh")
 		with open(step_filename, "w") as fh:
 			fh.write("#!/bin/bash\n")
-			fh.write("#SBATCH -A "+args.project_id+"\n")
-			fh.write("#SBATCH -p node -n 16\n")
-			fh.write("#SBATCH -t "+step_duration[step]+"\n")
-			fh.write("#SBATCH -J "+args.sample_name+"_"+step+"\n")
-			fh.write("#SBATCH -o log/"+step+"-%j.out"+"\n")
-			fh.write("#SBATCH -e log/"+step+"-%j.err"+"\n")
+			fh.write("#SBATCH -A {}\n".format(args.project_id))
+			fh.write("#SBATCH -p {}\n".format(step_partition[step]))
+			fh.write("#SBATCH -t {}\n".format(step_duration[step]))
+			fh.write("#SBATCH -J {}_{}\n".format(args.sample_name,step))
+			fh.write("#SBATCH -o log/{}_{}-%j.out\n".format(args.sample_name,step))
+			fh.write("#SBATCH -e log/{}_{}-%j.err\n".format(args.sample_name,step))
 
-			fh.write("#SBATCH --mail-user mauricio.barrientos@ki.se\n")
+			fh.write("#SBATCH --mail-user {}\n".format(args.email) )
 			fh.write("#SBATCH --mail-type=ALL\n\n")
 
 			fh.write( modules_to_load(modules[step]) )
@@ -86,6 +107,9 @@ def main(args):
 			fh.write( modules_to_load(["-python","-samtools"]))
 
 			fh.write("set -euo pipefail\n\n") #Fast failing for bash script
+
+			#Add external tools to PATH
+			fh.write( append_to_path(ext_tool_path[step]) )
 
 			#Assumes cfg/uppmax.cfg is the template to use
 			#TODO: choose base configuration file from arguments
@@ -110,6 +134,9 @@ def modules_to_load(modules):
 
 	return module_string
 
+def append_to_path(tool_paths):
+	new_path_str = "export PATH=\"" + ":".join(tool_paths) + ":$PATH\"\n"
+	return new_path_str
 
 def validate_args(args):
 	return True
@@ -122,6 +149,7 @@ if __name__ == '__main__':
 	parser.add_argument("sample_name",help="Sample name that will be used on the pipeline")
 	parser.add_argument("-o","--output-folder", default="./", help="Folder where to output the scripts" )
 	parser.add_argument("-A","--project_id", default="b2011088",help="Slurm project id")
+	parser.add_argument("--email", default="mauricio.barrientos@ki.se",help="Email to send run reports to")
 	args = parser.parse_args()
 
 	#Initialize log
