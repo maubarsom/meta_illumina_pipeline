@@ -36,13 +36,14 @@ import logging
 
 #****************Begin of Main ***************
 def main(args):
-	steps = ["qc","qf","rmcont","asm","taxassign","metaphlan2" ]
+	steps = ["qc","qf","rmcont","asm","tax_blast","tax_diamond","metaphlan2" ]
 	modules = {
 		"qc": ["+java/sun_jdk1.7.0_25" ],
 		"qf" :["+FLASH/1.2.11" ],
 		"rmcont":["+bwa/0.7.10","+picard/1.118"],
 		"asm":["-gcc","+bwa/0.7.12","+spades/3.6.0","+fermi/1.1-r751-beta"],
-		"taxassign":["+blast/2.2.29+","+diamond/0.7.9"],
+		"tax_blast":["+blast/2.2.29+"],
+		"tax_diamond":["+diamond/0.7.9"],
 		"metaphlan2" : [],
 	}
 
@@ -52,26 +53,29 @@ def main(args):
 		"qf":		["/proj/b2011088/tools/anaconda/bin" ],
 		"rmcont":	["/proj/b2011088/tools/anaconda/bin" ],
 		"asm":		["/proj/b2011088/tools/anaconda/bin",
-					 "/proj/b2011088/tools/megahit/1.0.2"],
-		"taxassign":[ "/proj/b2011088/tools/anaconda/bin" ],
-		"metaphlan2":[ "/proj/b2011088/tools/anaconda/bin" ]
+				 "/proj/b2011088/tools/megahit/1.0.2"],
+		"tax_blast":	["/proj/b2011088/tools/anaconda/bin" ],
+		"tax_diamond":	["/proj/b2011088/tools/anaconda/bin" ],
+		"metaphlan2":	["/proj/b2011088/tools/anaconda/bin" ]
 	}
 
 	step_partition = {
-		"qc": 			"core -n 8",
-		"qf" : 		 	"core -n 2",
-		"rmcont": 	 	"core -n 8",
-		"asm": 		 	"node -n 16",
-		"taxassign":	"node -n 16",
+		"qc":		"core -n 8",
+		"qf":		"core -n 4",
+		"rmcont":	"core -n 8",
+		"asm": 	 	"node -n 16",
+		"tax_blast":	"node -n 16",
+		"tax_diamond":	"node -n 16",
 		"metaphlan2":	"node -n 16"
 	}
 
 	step_duration = {
-		"qc": 			"06:00:00",
-		"qf" : 			"06:00:00",
-		"rmcont": 		"06:00:00",
-		"asm": 			"06:00:00",
-		"taxassign":	"4-00:00:00"
+		"qc": 		"06:00:00",
+		"qf" : 		"06:00:00",
+		"rmcont": 	"06:00:00",
+		"asm": 		"06:00:00",
+		"tax_blast":	"4-00:00:00",
+		"tax_diamond":	"4-00:00:00",
 		"metaphlan2":	"3:00:00"
 	}
 
@@ -80,7 +84,9 @@ def main(args):
 		"qf" : "qf_qc",
 		"rmcont": "contamination_rm",
 		"asm": "assembly",
-		"taxassign": "tax_assign"
+		"tax_blast": "tax_blast",
+		"tax_diamond": "tax_diamond",
+		"metaphlan2":	"metaphlan"
 	}
 
 	#Create log file for sbatch logs
