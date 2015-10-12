@@ -39,12 +39,12 @@ def main(args):
 	steps = ["qc","qf","rmcont","asm","tax_blast","tax_diamond","metaphlan2" ]
 	modules = {
 		"qc": ["+java/sun_jdk1.7.0_25" ],
-		"qf" :["+FLASH/1.2.11" ],
-		"rmcont":["+bwa/0.7.10","+picard/1.127"],
+		"qf" :["+FLASH/1.2.11","+java/sun_jdk1.7.0_25" ],
+		"rmcont":["+bowtie2/2.2.3","+picard/1.127"],
 		"asm":["-gcc","+bwa/0.7.12","+picard/1.127","+spades/3.6.0","+fermi/1.1-r751-beta"],
 		"tax_blast":["+blast/2.2.29+"],
 		"tax_diamond":["+diamond/0.7.9"],
-		"metaphlan2" : [],
+		"metaphlan2" : ["+bowtie2/2.2.3"],
 	}
 
 	#Folders to add to PATH
@@ -61,7 +61,7 @@ def main(args):
 
 	step_partition = {
 		"qc":		"core -n 8",
-		"qf":		"core -n 2",
+		"qf":		"core -n 6",
 		"rmcont":	"core -n 8",
 		"asm": 	 	"node -n 16",
 		"tax_blast":	"node -n 16",
