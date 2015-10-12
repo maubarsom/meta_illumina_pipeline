@@ -40,8 +40,8 @@ def main(args):
 	modules = {
 		"qc": ["+java/sun_jdk1.7.0_25" ],
 		"qf" :["+FLASH/1.2.11" ],
-		"rmcont":["+bwa/0.7.10","+picard/1.118"],
-		"asm":["-gcc","+bwa/0.7.12","+spades/3.6.0","+fermi/1.1-r751-beta"],
+		"rmcont":["+bwa/0.7.10","+picard/1.127"],
+		"asm":["-gcc","+bwa/0.7.12","+picard/1.127","+spades/3.6.0","+fermi/1.1-r751-beta"],
 		"tax_blast":["+blast/2.2.29+"],
 		"tax_diamond":["+diamond/0.7.9"],
 		"metaphlan2" : [],
@@ -61,7 +61,7 @@ def main(args):
 
 	step_partition = {
 		"qc":		"core -n 8",
-		"qf":		"core -n 4",
+		"qf":		"core -n 2",
 		"rmcont":	"core -n 8",
 		"asm": 	 	"node -n 16",
 		"tax_blast":	"node -n 16",
