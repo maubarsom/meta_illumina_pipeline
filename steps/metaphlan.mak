@@ -36,7 +36,7 @@ $(TMP_DIR)/reads_raw.fq : $(wildcard $(read_folder)/*.fastq.gz)
 %_raw_metaphlan.txt: $(TMP_DIR)/reads_raw.fq
 	$(mpa_bin) --mpa_pkl $(mpa_pkl) --bowtie2db $(mpa_bowtie2db) \
 		--bowtie2out $(TMP_DIR)/raw.bowtie2.bz2 --nproc $(threads) --input_type multifastq \
-		--biom $*_raw_metaphlan.biom $< $@
+		--sample_id_key $(sample_name) --biom $*_raw_metaphlan.biom $< $@
 	-rm $(TMP_DIR)/raw.bowtie2.bz2
 
 #******************************************************************
@@ -47,8 +47,8 @@ $(TMP_DIR)/reads_nohuman.fq : $(wildcard $(read_folder)/*_?e.fq)
 
 %_nohuman_metaphlan.txt: $(TMP_DIR)/reads_nohuman.fq
 	$(mpa_bin) --mpa_pkl $(mpa_pkl) --bowtie2db $(mpa_bowtie2db) \
-		--bowtie2out $(TMP_DIR)/nohuman.bowtie2.bz2 --nproc $(threads) --input_type multifastq \
-		--biom $*_nohuman_metaphlan.biom $< $(word 1,$@)
+		--bowtie2out $(TMP_DIR )/nohuman.bowtie2.bz2 --nproc $(threads) --input_type multifastq \
+		--sample_id_key $(sample_name) --biom $*_nohuman_metaphlan.biom $< $(word 1,$@)
 	-rm $(TMP_DIR)/nohuman.bowtie2.bz2
 
 #******************************************************************
@@ -57,5 +57,5 @@ $(TMP_DIR)/reads_nohuman.fq : $(wildcard $(read_folder)/*_?e.fq)
 %_asm_metaphlan.txt: $(wildcard $(read_folder)/*_allctgs.fa)
 	$(mpa_bin) --mpa_pkl $(mpa_pkl) --bowtie2db $(mpa_bowtie2db) \
 		--bowtie2out $(TMP_DIR)/asm.bowtie2.bz2 --nproc $(threads) --input_type multifasta \
-		--biom $*_asm_metaphlan.biom $< $@
+		--sample_id_key $(sample_name) --biom $*_asm_metaphlan.biom $< $@
 	-rm $(TMP_DIR)/asm.bowtie2.bz2
