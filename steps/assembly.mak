@@ -145,7 +145,7 @@ fermi/fmdef.p2.mag.gz: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 
 $(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
 	ln -s $^ fermi_all.fq.gz
-	seqtk seq -A fermi_all.fq.gz > $@
+	$(SEQTK_BIN) seq -A fermi_all.fq.gz > $@
 	-rm fermi_all.fq.gz
 
 #*************************************************************************
