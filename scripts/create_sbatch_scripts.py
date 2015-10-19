@@ -60,13 +60,13 @@ def main(args):
 	}
 
 	step_partition = {
-		"qc":		"core -n 8",
-		"qf":		"core -n 6",
+		"qc":		"core -n 2",
+		"qf":		"core -n 3",
 		"rmcont":	"core -n 8",
-		"asm": 	 	"node -n 16",
-		"tax_blast":	"node -n 16",
+		"asm": 	 	"core -n 8",
+		"tax_blast":	"core -n 8",
 		"tax_diamond":	"node -n 16",
-		"metaphlan2":	"node -n 16"
+		"metaphlan2":	"core -n 8"
 	}
 
 	step_duration = {
