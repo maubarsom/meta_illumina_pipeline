@@ -25,6 +25,10 @@ import time
 import gzip
 import re
 
+from signal import signal, SIGPIPE, SIG_DFL
+#Install default SIGPIPE signal handling
+signal(SIGPIPE,SIG_DFL)
+
 def main(args):
 	#Open diamond file
 	if args.diamond_sam.endswith(".gz"):
