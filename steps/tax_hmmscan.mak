@@ -19,8 +19,8 @@ endif
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-all: hmmscan/$(SAMPLE)_emboss_orfs_hmmscan_PfamA.out
-all: hmmscan/$(SAMPLE)_emboss_orfs_hmmscan_vFamA.out
+all: hmmscan/$(SAMPLE)_emboss_orfs_minlen80_hmmscan_PfamA.out
+all: hmmscan/$(SAMPLE)_emboss_orfs_minlen80_hmmscan_vFamA.out
 
 #*********************************************************
 # Predict ORFs with EMBOSS getorf
@@ -33,9 +33,10 @@ orf/$(SAMPLE)_emboss_find1.fa: $(in_fasta)
 	mkdir -p $(dir $@)
 	getorf -sequence $< -outseq $@ -find 1
 
-orf/$(SAMPLE)_emboss_orfs.fa: orf/$(SAMPLE)_emboss_find0.fa orf/$(SAMPLE)_emboss_find1.fa
+orf/$(SAMPLE)_emboss_orfs_minlen80.fa: orf/$(SAMPLE)_emboss_find0.fa orf/$(SAMPLE)_emboss_find1.fa
 	cat  <( awk '/^>/ {print gensub(/(_[0-9]+) (\[.+\])/,"\\1_find0 \\2",$$0); } ! /^>/{print $$0;}' $< ) \
-	 	 <( awk '/^>/ {print gensub(/(_[0-9]+) (\[.+\])/,"\\1_find1 \\2",$$0); } ! /^>/{print $$0;}' $(word 2,$^) ) > $@
+	 	 <( awk '/^>/ {print gensub(/(_[0-9]+) (\[.+\])/,"\\1_find1 \\2",$$0); } ! /^>/{print $$0;}' $(word 2,$^) ) | \
+		 seqtk seq -L 80 - > $@
 
 #*********************************************************
 # Run hmmscan Pfam-A against the orfs
