@@ -5,13 +5,14 @@
 #SBATCH -J sample_hmmscan
 #SBATCH --mail-user christian.pou@ki.se
 #SBATCH --mail-type ALL
-#SBATCH -e log/sample_hmmscan.err
-#$BATCH -o log/sample_hmmscan.out 
+#SBATCH -e log/sample_hmmscan-%j.err
+#SBATCH -o log/sample_hmmscan-%j.out 
 
 set -euo pipefail
 
 module load hmmer
 module load emboss
+module load seqtk
 
 sample_name=$(basename assembly/*_allctgs.fa _allctgs.fa)
 threads=16
@@ -28,5 +29,10 @@ cat <(python scripts/extract_diamond_nohits.py assembly/*_allctgs.fa tax_assign/
 	<(python scripts/extract_diamond_nohits.py assembly/*_se.fa tax_assign/diamond/*_se_diamond_nr.sam.gz)  | seqtk seq -L 400 > tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa
 fi
 
+if [[ -s tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa ]];
+then
 cd tax_assign/hmmscan
 make -rf ../../steps/tax_hmmscan.mak SAMPLE=${sample_name} threads=${threads} UPPMAX=1 in_fasta=input/${sample_name}_diamond_nohits.fa
+else
+echo "File tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa is empty!" >&2
+fi
