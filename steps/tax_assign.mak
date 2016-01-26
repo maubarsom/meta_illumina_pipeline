@@ -24,22 +24,13 @@ ifndef sample_name
 $(error Variable 'sample_name' is not defined)
 endif
 
-ifndef read_folder
-$(error Variable 'read_folder' is not defined)
+ifndef in_folder
+$(error Variable 'in_folder' is not defined)
 endif
 
-ifndef ctg_folder
-$(error Variable 'ctg_folder' is not defined)
-endif
-
-ifndef read_steps
-read_steps := qf_rmcont_asm
-$(info 'read_steps' is assumed to be $(read_steps))
-endif
-
-ifndef ctg_steps
-ctg_steps := qf_rmcont_asm
-$(info 'ctg_steps' is assumed to be $(ctg_steps))
+ifndef in_steps
+in_steps := qf_rmcont_asm
+$(info 'in_steps' is assumed to be $(in_steps))
 endif
 
 ifndef step
@@ -78,20 +69,13 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 .PHONY: blastx_vir blastx_nr blastx_sprot
 .PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
 
-all: kraken_reports
 all: diamond_nr
-all: blastn_nt
-# all: blastx_nr
-# all: blastx_vir
-# all: blastx_sprot
 # all: hmmscan_pfam hmmscan_vfam
 # all: phmmer_vir
-# all: blastp_vir blastp_nr
 
 #Outputs
-
-kraken_reports: $(call ctg_outfile,kraken,kraken.report)
-#kraken_reports: $(call read_outfiles,kraken,kraken.report,pe se)
+diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam.gz.md5)
+diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam.gz.md5,pe se)
 
 phmmer_vir : $(call ctg_outfile,phmmer,fgs_phmmer_refseqvir.tbl)
 phmmer_sprot : $(call ctg_outfile,phmmer,fgs_phmmer_sprot.tbl)
@@ -102,73 +86,52 @@ hmmscan_pfam : $(call read_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,pe se)
 hmmscan_vfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_vfam.tbl)
 hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
 
-blastn_nt : $(call ctg_outfile,blastn,blastn_nt.xml.gz.md5)
-blastn_nt : $(call read_outfiles,blastn,blastn_nt.xml.gz.md5,pe se)
+#*************************************************************************
+#Diamond (Tubingen) - Proteins
+#*************************************************************************
+#Contigs to NR
+#Can add --sensitive flag for slower but more accurate results
+#--seg yes/no for low complexity masking
+diamond/%_diamond_nr.daa : $(in_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
 
-blastn_vir : $(call ctg_outfile,blastn,blastn_refseqvir.xml)
-blastn_vir : $(call read_outfiles,blastn,blastn_refseqvir.xml,pe se)
+diamond/%_diamond_nr.daa : $(in_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
 
-blastp_vir : $(call ctg_outfile,blastp,fgs_blastp_refseqvir.xml)
-blastp_vir : $(call read_outfiles,blastp,fgs_blastp_refseqvir.xml,pe se)
+diamond/%.sam.gz : diamond/%.daa
+	$(DIAMOND_BIN) view --daa $^ --out $(dir $@)/$*.sam --outfmt sam
+	gzip $(dir $@)/$*.sam
 
-blastp_nr : $(call ctg_outfile,blastp,fgs_blastp_nr.xml)
-blastp_nr : $(call read_outfiles,blastp,fgs_blastp_nr.xml,pe se)
-
-blastp_sprot : $(call ctg_outfile,blastp,fgs_blastp_sprot.xml)
-blastp_sprot : $(call read_outfiles,blastp,fgs_blastp_sprot.xml,pe se)
-
-blastx_nr : $(call ctg_outfile,blastx,blastx_nr.xml)
-blastx_nr : $(call read_outfiles,blastx,blastx_nr.xml,pe se)
-
-diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam.gz.md5)
-diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam.gz.md5,pe se)
-
-blastx_sprot : $(call ctg_outfile,blastx,blastx_sprot.xml)
-blastx_sprot : $(call read_outfiles,blastx,blastx_sprot.xml,pe se)
-
-blastx_vir : $(call ctg_outfile,blastx,blastx_refseqvir.xml)
-blastx_vir : $(call read_outfiles,blastx,blastx_refseqvir.xml,pe se)
+$(TMP_DIR)/%_diamond_nohits.fa: diamond/%_diamond_nr.sam.gz ../assembly/%.fa
+	python ../scripts/extract_diamond_nohits.py $< $(word 2)
 
 #*************************************************************************
-#Call to Kraken - Salzberg
+#EMBOSS ORF prediction
 #*************************************************************************
-#Other flags: --fastq-input
-kraken/%_kraken.out: $(ctg_folder)/%.fa
-	mkdir -p kraken
-	@echo -e "\nClassifying $* with Kraken\n\n"
-	kraken --preload --db $(kraken_db) --threads $(threads) $^ > $@
+#Contig analysis
+orf/%_emboss_find0.faa: $(in_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10
 
-%_kraken.report: %_kraken.out
-	@echo -e "\nCreating Kraken report for $* \n\n"
-	kraken-report --db $(kraken_db) $^ > $@
+#Read analysis
+orf/%_emboss_find1.faa : $(in_folder)/%.fa
+	mkdir -p $(dir $@)
+	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10
 
 #*************************************************************************
 #FragGeneScan
 #*************************************************************************
 #Contig analysis
-fgs/%_fgs.faa: $(ctg_folder)/%.fa
+fgs/%_fgs.faa: $(in_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10
 
 #Read analysis
-fgs/%_fgs.faa : $(read_folder)/%.fa
+fgs/%_fgs.faa : $(in_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10
-
-#*************************************************************************
-#Phmmer
-#*************************************************************************
-#Optional --domtblout $(basename $@).dom
-
-#Contigs against swissprot
-phmmer/%_fgs_phmmer_sprot.tbl : fgs/%_fgs.faa $(swissprot_faa)
-	mkdir -p phmmer
-	$(PHMMER_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
-
-#Contigs against refseq virus proteins
-phmmer/%_fgs_phmmer_refseqvir.tbl : fgs/%_fgs.faa $(refseq_virus_faa)
-	mkdir -p phmmer
-	$(PHMMER_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
 
 #*************************************************************************
 #HMMSCAN
@@ -184,86 +147,6 @@ hmmscan/%_fgs_hmmscan_pfam.tbl : $(pfam_hmm_db) fgs/%_fgs.faa
 hmmscan/%_fgs_hmmscan_vfam.tbl : $(vfam_hmm_db) fgs/%_fgs.faa
 	mkdir -p $(dir $@)
 	$(HMMSCAN_BIN) --cpu $(threads) --noali --tblout $@ --domtblout $(basename $@)_dom.tbl $^ > /dev/null
-
-#*************************************************************************
-#BlastN - Nucleotides
-#*************************************************************************
-#Reads to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: $(read_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@
-
-#Contigs to Refseq Viral nucleotides
-blastn/%_blastn_refseqvir.xml: $(ctg_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_refseqvir_nucl) -query $^ -out $@
-
-#Contigs to nt
-blastn/%_blastn_nt.xml.gz: $(ctg_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTN_BIN) -task blastn $(blast_params) $(blastn_params) -db $(blastdb_nt) -query $^ -out $(basename $@)
-	gzip $(basename $@)
-
-#*************************************************************************
-#BlastX - Proteins
-#*************************************************************************
-#Contigs to NR
-blastx/%_blastx_nr.xml : $(ctg_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@
-
-#Reads to NR
-blastx/%_blastx_nr.xml : $(read_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@
-
-#Contigs to Swissprot
-blastx/%_blastx_sprot.xml : $(ctg_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@
-
-#Contigs to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : $(ctg_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
-
-#Reads to Refseq Virus Proteins
-blastx/%_blastx_refseqvir.xml : $(read_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(BLASTX_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
-
-#*************************************************************************
-#Diamond (Tubingen) - Proteins
-#*************************************************************************
-#Contigs to NR
-#Can add --sensitive flag for slower but more accurate results
-#--seg yes/no for low complexity masking
-diamond/%_diamond_nr.daa : $(ctg_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
-
-diamond/%_diamond_nr.daa : $(read_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
-
-diamond/%.sam.gz : diamond/%.daa
-	$(DIAMOND_BIN) view --daa $^ --out $(dir $@)/$*.sam --outfmt sam
-	gzip $(dir $@)/$*.sam
-
-#*************************************************************************
-#BlastP - Predicted ORF to Proteins
-#*************************************************************************
-blastp/%_fgs_blastp_nr.xml: fgs/%_fgs.faa
-	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_nr) -query $< -out $@
-
-blastp/%_fgs_blastp_sprot.xml: fgs/%_fgs.faa
-	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_sprot) -query $< -out $@
-
-blastp/%_fgs_blastp_refseqvir.xml: fgs/%_fgs.faa
-	mkdir -p $(dir $@)
-	$(BLASTP_BIN) $(blast_params) -db $(blastdb_refseqvir_prot) -query $< -out $@
 
 #*************************************************************************
 # Calculate checksums
