@@ -26,7 +26,7 @@ mkdir -p tax_assign/hmmscan/input
 if [ ! -e tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa ];
 then
 cat <(python scripts/extract_diamond_nohits.py assembly/*_allctgs.fa tax_assign/diamond/*_allctgs_diamond_nr.sam.gz) \
-	<(python scripts/extract_diamond_nohits.py assembly/*_se.fa tax_assign/diamond/*_se_diamond_nr.sam.gz)  | seqtk seq -L 400 > tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa
+	<(python scripts/extract_diamond_nohits.py assembly/*_se.fa tax_assign/diamond/*_se_diamond_nr.sam.gz)  | seqtk seq -L 400 - > tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa
 fi
 
 if [[ -s tax_assign/hmmscan/input/${sample_name}_diamond_nohits.fa ]];
