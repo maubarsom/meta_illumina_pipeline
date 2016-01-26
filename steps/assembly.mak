@@ -57,7 +57,7 @@ ifndef ASSEMBLERS
 endif
 
 #Creates a OUT_PREFIX_assembler_ctgs_filt.fa for each assembler
-OUT_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix $(OUT_PREFIX)_,$(ASSEMBLERS)))
+OUT_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix contigs_filt/$(OUT_PREFIX)_,$(ASSEMBLERS)))
 
 #Ray
 ray_kmer := 31
@@ -116,37 +116,23 @@ raymeta/Contigs.fasta: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 	mpiexec -n 16 Ray Meta -k $(ray_kmer) -i $(INPUT_PAIRED_END) -s $(INPUT_SINGLE_END) -o $(dir $@)
 
 #Ray Assembler duplicates contigs for some reason, probably due to MPI
-$(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
+contigs/$(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
 	../scripts/deduplicate_raymeta_ctgs.py -o $@ $^
-
-#*************************************************************************
-#Fermi - only pe
-#*************************************************************************
-#Runs Fermi assembler until the 4th step.
-#Qualities are not neccessary for Kraken/Blast classification
-fermipe/fmdef.p4.fa.gz: $(INPUT_PAIRED_END)
-	mkdir -p $(dir $@)
-	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) -c ../$^ > assembly.mak
-	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@)
-
-$(OUT_PREFIX)_fermipe_contigs.fa: fermipe/fmdef.p4.fa.gz
-	gunzip -c $^ > $@
 
 #*************************************************************************
 #Fermi - all
 #*************************************************************************
 #Runs Fermi assembler with both single and paired-ends assuming they are all single-ends
 #Fermi outputs only until the 2nd step
-#Qualities are not neccessary for Kraken/Blast classification
+#Qualities are not necessary for Kraken/Blast classification
 fermi/fmdef.p2.mag.gz: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 	mkdir -p $(dir $@)
 	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) $(addprefix ../,$^) > assembly.mak
 	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@)
 
-$(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
-	ln -s $^ fermi_all.fq.gz
-	$(SEQTK_BIN) seq -A fermi_all.fq.gz > $@
-	-rm fermi_all.fq.gz
+contigs/$(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
+	mkdir -p $(dir $@)
+	gunzip $^ |	$(SEQTK_BIN) seq -A - > $@
 
 #*************************************************************************
 #Megahit
@@ -154,8 +140,9 @@ $(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
 megahit/final.contigs.fa: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 	$(MEGAHIT_BIN) -m 5e10 -l $$(( 2*$(READ_LEN) )) --k-step 4 --k-max 81 --12 $< -r $(word 2,$^) --cpu-only -t $(threads) -o megahit
 
-$(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
-	ln -s $^ $@
+contigs/$(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
+	mkdir -p $(dir $@)
+	cp $^ $@
 
 #*************************************************************************
 #Spades
@@ -164,8 +151,9 @@ spades/contigs.fasta: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
 	mkdir -p $(dir $@)
 	$(SPADES_BIN) -t $(threads) --12 $< -s $(word 2,$^) -o $(dir $@) --tmp-dir $(TMP_DIR) -m 64
 
-$(OUT_PREFIX)_spades_contigs.fa: spades/contigs.fasta
-	ln -s $^ $@
+contigs/$(OUT_PREFIX)_spades_contigs.fa: spades/contigs.fasta
+	mkdir -p $(dir $@)
+	cp $^ $@
 
 #*************************************************************************
 #MaSuRCA
@@ -194,8 +182,10 @@ masurca/CA/10-gapclose/genome.ctg.fasta: masurca/masurca.cfg
 	cd masurca && masurca $(notdir $<)
 	cd masurca && bash assemble.sh
 
-$(OUT_PREFIX)_masurca_contigs.fa: masurca/CA/10-gapclose/genome.ctg.fasta
-	ln -s $^ $@
+contigs/$(OUT_PREFIX)_masurca_contigs.fa: masurca/CA/10-gapclose/genome.ctg.fasta
+	mkdir -p $(dir $@)
+	cp $^ $@
+
 #*************************************************************************
 #SGA quality filtering steps
 #*************************************************************************
@@ -232,16 +222,18 @@ sga/$(sample_name)_sga.fq: $(INPUT_PAIRED_END)
 sga/%-contigs.fa: sga/%.ec.filter.pass.asqg.gz
 	cd $(dir $@) && $(SGA_BIN) assemble -m $(sga_assemble_overlap) --min-branch-length $(TRIM_LENGTH) -o $* $(notdir $^)
 
-$(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
-	ln $^ $@
+contigs/$(OUT_PREFIX)_sga_contigs.fa: sga/$(sample_name)-contigs.fa
+	mkdir -p $(dir $@)
+	cp $^ $@
 
 #*************************************************************************
 #Extract contigs > 500 bp
 #*************************************************************************
 #Seqtk is used to sample sequences > 500bp
 #Awk renames contigs to make them friendly for RAPSEARCH and other tools that do not support spaces in the names
-%_ctgs_filt.fa : %_contigs.fa
-	$(SEQTK_BIN) seq -L 500 $^ | 	awk -vPREFIX=$*  'BEGIN {counter=1; split(PREFIX,fields,"_asm_"); ASM=fields[2];} /^>/ {print ">" ASM "_" counter ;counter+=1;} ! /^>/{print $0;}' > $@
+contigs_filt/%_ctgs_filt.fa: contigs/%_contigs.fa
+	mkdir -p $(dir $@)
+	$(SEQTK_BIN) seq -L 500 $< | awk -vPREFIX=$*  'BEGIN {counter=1; split(PREFIX,fields,"_asm_"); ASM=fields[2];} /^>/ {print ">" ASM "_" counter ;counter+=1;} ! /^>/{print $0;}' > $@
 
 #*************************************************************************
 #Extract singletons
