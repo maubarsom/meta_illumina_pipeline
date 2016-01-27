@@ -28,19 +28,13 @@ ifndef read_folder
 $(error Variable 'read_folder' is not defined)
 endif
 
-ifndef prev_steps
-prev_steps := qf
-$(info 'prev_steps' is assumed to be $(prev_steps))
-endif
-
 ifndef step
 step:=rmcont
 $(warning Variable 'step' has been defined as '$(step)')
 endif
 
 #Input and Output file prefixes
-IN_PREFIX:= $(sample_name)_$(prev_steps)
-OUT_PREFIX:= $(IN_PREFIX)_$(step)
+OUT_PREFIX:= $(sample_name)_$(step)
 
 #Run parameters
 ifndef threads
@@ -53,9 +47,10 @@ MAPPER := bowtie2
 endif
 
 #Input files
-R1 := $(read_folder)/$(IN_PREFIX)_R1.fq.gz
-R2 := $(read_folder)/$(IN_PREFIX)_R2.fq.gz
-singles := $(read_folder)/$(IN_PREFIX)_single.fq.gz
+R1 := $(read_folder)/$(sample_name)_R1.fq.gz
+R2 := $(read_folder)/$(sample_name)_R2.fq.gz
+single := $(read_folder)/$(sample_name)_single.fq.gz
+merged := $(read_folder)/$(sample_name)_merged.fq.gz
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -66,18 +61,19 @@ singles := $(read_folder)/$(IN_PREFIX)_single.fq.gz
 .PHONY: all
 
 #It can also output separate R1 and R2 for paired-ends insteads of interleaved
-#all: $(addprefix $(OUT_PREFIX)_,R1.fq R2.fq se.fq)
-all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_se.fq
-all: $(addprefix stats/$(OUT_PREFIX)_,pe.$(MAPPER).bam.flgstat se.$(MAPPER).bam.flgstat)
-all: $(MAPPER)/$(OUT_PREFIX)_pe.bam.md5 $(MAPPER)/$(OUT_PREFIX)_se.bam.md5
+#all: $(addprefix $(OUT_PREFIX)_,R1.fq R2.fq single.fq merged.fq)
+all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_single.fq $(OUT_PREFIX)_merged.fq
+all: $(addprefix stats/$(OUT_PREFIX)_,pe.$(MAPPER).bam.flgstat single.$(MAPPER).bam.flgstat merged.$(MAPPER).bam.flgstat)
+all: $(MAPPER)/$(OUT_PREFIX)_pe.bam.md5 $(MAPPER)/$(OUT_PREFIX)_single.bam.md5 $(MAPPER)/$(OUT_PREFIX)_merged.bam.md5
 
 #*************************************************************************
 #Map to human genome with BWA MEM
 #*************************************************************************
 bwa/%_pe.bam: $(R1) $(R2)
-bwa/%_se.bam: $(singles)
+bwa/%_single.bam: $(single)
+bwa/%_merged.bam: $(merged)
 
-bwa/%_pe.bam bwa/%_se.bam:
+bwa/%_pe.bam bwa/%_single.bam bwa/%_merged.bam:
 	$(BWA_BIN) mem -t $(threads) -T 30 -M $(bwa_contaminants_idx) $^ | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
 
 #*************************************************************************
@@ -91,7 +87,11 @@ bowtie2/%_pe.bam: $(R1) $(R2)
 	mkdir -p $(dir $@)
 	$(BOWTIE2_BIN) $(bowtie2_opts) -x $(bowtie2_contaminants_idx) -1 $< -2 $(word 2,$^) | $(SAMTOOLS_BIN) view -hSb -o $@ -
 
-bowtie2/%_se.bam: $(singles)
+bowtie2/%_single.bam: $(single)
+	mkdir -p $(dir $@)
+	$(BOWTIE2_BIN) $(bowtie2_opts) -x $(bowtie2_contaminants_idx) -U $< | $(SAMTOOLS_BIN) view -hSb -o $@ -
+
+bowtie2/%_merged.bam: $(merged)
 	mkdir -p $(dir $@)
 	$(BOWTIE2_BIN) $(bowtie2_opts) -x $(bowtie2_contaminants_idx) -U $< | $(SAMTOOLS_BIN) view -hSb -o $@ -
 
@@ -109,7 +109,10 @@ $(TMP_DIR)/%_unmapped_pe.bam: $(MAPPER)/%_pe.bam
 	$(SAMTOOLS_BIN) view -f12 -hb -o $@ $^
 	#$(SAMTOOLS_BIN) view -F2 -hb -o $@ $^
 
-$(TMP_DIR)/%_unmapped_se.bam: $(MAPPER)/%_se.bam
+$(TMP_DIR)/%_unmapped_single.bam: $(MAPPER)/%_single.bam
+	$(SAMTOOLS_BIN) view -f4 -hb -o $@ $^
+
+$(TMP_DIR)/%_unmapped_merged.bam: $(MAPPER)/%_merged.bam
 	$(SAMTOOLS_BIN) view -f4 -hb -o $@ $^
 
 %_R1.fq %_R2.fq: $(TMP_DIR)/%_unmapped_pe.bam
@@ -118,7 +121,10 @@ $(TMP_DIR)/%_unmapped_se.bam: $(MAPPER)/%_se.bam
 %_pe.fq: $(TMP_DIR)/%_unmapped_pe.bam
 	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$@ INTERLEAVE=TRUE
 
-%_se.fq: $(TMP_DIR)/%_unmapped_se.bam
+%_single.fq: $(TMP_DIR)/%_unmapped_single.bam
+	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$@
+
+%_merged.fq: $(TMP_DIR)/%_unmapped_merged.bam
 	$(PICARD_BIN) SamToFastq INPUT=$^ FASTQ=$@
 
 #*************************************************************************
