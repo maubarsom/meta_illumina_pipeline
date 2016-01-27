@@ -29,23 +29,18 @@ $(warning Variable 'read_folder' will be assumed to be "./")
 read_folder := ./
 endif
 
-ifndef prev_steps
-prev_steps := qf_rmcont
-$(warning 'prev_steps' is assumed to be $(prev_steps))
-endif
-
 ifndef step
 step:= asm
 $(warning Variable 'step' has been defined as '$(step)')
 endif
 
 #Input and Output file prefixes
-IN_PREFIX := $(sample_name)_$(prev_steps)
-OUT_PREFIX:= $(IN_PREFIX)_$(step)
+OUT_PREFIX:= $(sample_name)_$(step)
 
 #Reads
-INPUT_PAIRED_END := $(read_folder)/$(IN_PREFIX)_pe.fq
-INPUT_SINGLE_END := $(read_folder)/$(IN_PREFIX)_se.fq
+INPUT_PE := $(read_folder)/$(sample_name)_pe.fq
+INPUT_SINGLE := $(read_folder)/$(sample_name)_single.fq
+INPUT_MERGED := $(read_folder)/$(sample_name)_merged.fq
 
 #Run params
 ifndef threads
@@ -57,7 +52,7 @@ ifndef ASSEMBLERS
 endif
 
 #Creates a OUT_PREFIX_assembler_ctgs_filt.fa for each assembler
-OUT_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix contigs_filt/$(OUT_PREFIX)_,$(ASSEMBLERS)))
+CTG_FILES:= $(addsuffix _ctgs_filt.fa,$(addprefix contigs_filt/$(OUT_PREFIX)_,$(ASSEMBLERS)))
 
 #Ray
 ray_kmer := 31
@@ -92,28 +87,25 @@ samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-.INTERMEDIATE: $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+.INTERMEDIATE: $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 
 .PHONY: all
 
-all: $(OUT_PREFIX)_allctgs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_se.fa
+all: $(OUT_PREFIX)_contigs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_se.fa
 
 #Concatenate the contigs from all assembly strategies into a single file
-$(OUT_PREFIX)_allctgs.fa: $(OUT_FILES)
+$(OUT_PREFIX)_contigs.fa: $(CTG_FILES)
 	cat $^ > $@
 
 $(OUT_PREFIX)_%.fa: singletons/singletons_%.fa
 	ln -s $^ $@
 
-$(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
-	ln -s $^ $@
-
 #*************************************************************************
 #MetaRay
 #*************************************************************************
-raymeta/Contigs.fasta: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
+raymeta/Contigs.fasta: $(INPUT_PE) $(INPUT_SINGLE)
 	@echo -e "\nAssembling reads with Ray Meta\n\n"
-	mpiexec -n 16 Ray Meta -k $(ray_kmer) -i $(INPUT_PAIRED_END) -s $(INPUT_SINGLE_END) -o $(dir $@)
+	mpiexec -n 16 Ray Meta -k $(ray_kmer) -i $< -s $(word 2,$^) -o $(dir $@)
 
 #Ray Assembler duplicates contigs for some reason, probably due to MPI
 contigs/$(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
@@ -125,7 +117,7 @@ contigs/$(OUT_PREFIX)_raymeta_contigs.fa: raymeta/Contigs.fasta
 #Runs Fermi assembler with both single and paired-ends assuming they are all single-ends
 #Fermi outputs only until the 2nd step
 #Qualities are not necessary for Kraken/Blast classification
-fermi/fmdef.p2.mag.gz: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
+fermi/fmdef.p2.mag.gz: $(INPUT_PE) $(INPUT_MERGED) $(INPUT_SINGLE)
 	mkdir -p $(dir $@)
 	cd $(dir $@) && run-fermi.pl -t $(threads) -k $(fermi_overlap) $(addprefix ../,$^) > assembly.mak
 	cd $(dir $@) && $(MAKE) -f assembly.mak -j $(threads) $(notdir $@)
@@ -137,8 +129,8 @@ contigs/$(OUT_PREFIX)_fermi_contigs.fa: fermi/fmdef.p2.mag.gz
 #*************************************************************************
 #Megahit
 #*************************************************************************
-megahit/final.contigs.fa: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
-	$(MEGAHIT_BIN) -m 5e10 -l $$(( 2*$(READ_LEN) )) --k-step 4 --k-max 81 --12 $< -r $(word 2,$^) --cpu-only -t $(threads) -o megahit
+megahit/final.contigs.fa: $(INPUT_PE) $(INPUT_MERGED) $(INPUT_SINGLE)
+	$(MEGAHIT_BIN) -m 5e10 -l $$(( 2*$(READ_LEN) )) --k-step 4 --k-max 81 --12 $< -r $(word 2,$^),$(word 3,$^) --cpu-only -t $(threads) -o megahit
 
 contigs/$(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
 	mkdir -p $(dir $@)
@@ -147,16 +139,16 @@ contigs/$(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
 #*************************************************************************
 #Spades
 #*************************************************************************
-spades/contigs.fasta: $(INPUT_PAIRED_END) $(INPUT_SINGLE_END)
+spades/contigs.fasta: $(INPUT_PE) $(INPUT_SINGLE) $(INPUT_MERGED)
 	mkdir -p $(dir $@)
-	$(SPADES_BIN) -t $(threads) --12 $< -s $(word 2,$^) -o $(dir $@) --tmp-dir $(TMP_DIR) -m 64
+	$(SPADES_BIN) -t $(threads) --pe1-12 $< -pe1-s $(word 2,$^) --s1 $(word 3,$^) -o $(dir $@) --tmp-dir $(TMP_DIR) -m 64
 
 contigs/$(OUT_PREFIX)_spades_contigs.fa: spades/contigs.fasta
 	mkdir -p $(dir $@)
 	cp $^ $@
 
 #*************************************************************************
-#MaSuRCA
+#MaSuRCA -- OBSOLETE : Rules must be updated !
 #*************************************************************************
 paired_ends/%_R1.fq : $(read_folder)/%_pe.fq
 	mkdir -p $(dir $@)
@@ -166,7 +158,7 @@ paired_ends/%_R2.fq: $(read_folder)/%_pe.fq
 	mkdir -p $(dir $@)
 	$(SEQTK_BIN) seq -2 $^ > $(lastword $@)
 
-masurca/masurca.cfg: paired_ends/$(IN_PREFIX)_R1.fq paired_ends/$(IN_PREFIX)_R2.fq $(INPUT_SINGLE_END)
+masurca/masurca.cfg: paired_ends/$(IN_PREFIX)_R1.fq paired_ends/$(IN_PREFIX)_R2.fq $(INPUT_SINGLE)
 	mkdir -p $(dir $@)
 	masurca -g masurca.cfg.1
 	sed -e "/^PE=/cPE=pe $(masurca_pe_stats)  $(addprefix ../,$(wordlist 1,2,$^))" \
@@ -187,11 +179,11 @@ contigs/$(OUT_PREFIX)_masurca_contigs.fa: masurca/CA/10-gapclose/genome.ctg.fast
 	cp $^ $@
 
 #*************************************************************************
-#SGA quality filtering steps
+#SGA -- OBSOLETE : Rules must be updated !
 #*************************************************************************
 #1) Preprocess the data to remove ambiguous basecalls
 #pe-mode=2 : interleaved
-sga/$(sample_name)_sga.fq: $(INPUT_PAIRED_END)
+sga/$(sample_name)_sga.fq: $(INPUT_PE)
 	mkdir -p sga/
 	$(SGA_BIN) preprocess --pe-mode 2 -o $@ $^
 
@@ -238,18 +230,22 @@ contigs_filt/%_ctgs_filt.fa: contigs/%_contigs.fa
 #*************************************************************************
 #Extract singletons
 #*************************************************************************
-$(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt: $(OUT_PREFIX)_allctgs.fa
+$(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt: $(OUT_PREFIX)_contigs.fa
 	$(BWA_BIN) index -p $(basename $@) $<
 
-singletons/pe_to_contigs.sam: $(INPUT_PAIRED_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+singletons/pe_to_contigs.sam: $(INPUT_PE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
 	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< > $@
 
-singletons/se_to_contigs.sam: $(INPUT_SINGLE_END) $(TMP_DIR)/$(OUT_PREFIX)_allctgs.fa.bwt
+singletons/single_to_contigs.sam: $(INPUT_SINGLE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
 	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@
 
-$(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq: $(TMP_DIR)/singletons_%.fq: singletons/%_to_contigs.sam
+singletons/merged_to_contigs.sam: $(INPUT_MERGED) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
+	mkdir -p singletons
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@
+
+$(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_single.fq $(TMP_DIR)/singletons_merged.fq: $(TMP_DIR)/singletons_%.fq: singletons/%_to_contigs.sam
 	$(SAMTOOLS_BIN) view -F 256 -hSb $^ | $(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $(basename $@).bam -
 	$(PICARD_BIN) SamToFastq INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True
 
