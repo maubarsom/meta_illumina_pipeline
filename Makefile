@@ -63,51 +63,44 @@ log_file = >(tee -a $(log_name) >&2)
 all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_diamond tax_blast tax_kraken metaphlan
 
 #QC raw reads
-raw_qc: $(read_folder)
+1_raw_qc: $(read_folder)
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) RAW=1 fastqc &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw clean-tmp
 
 #Quality filtering
-quality_filtering: $(read_folder)
+2_qf: $(read_folder)
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) &>> $(log_file)
 
 #QC Quality filtering
-qf_qc: quality_filtering
+2_qf_qc: 2_qf
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf fq_ext=fq.gz fastqc &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf clean-tmp
 
-#Contamination removal (human)
-contamination_rm: quality_filtering
+#Contamination removal (human and phiX174)
+3_hostfiltering: 2_qf
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf &>> $(log_file)
 
 #Assembly step
-assembly: contamination_rm
+4_assembly: 3_hostfiltering
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont &>> $(log_file)
 
 #Taxonomic / Functional Annotation
-tax_diamond: assembly
-	mkdir -p tax_assign
-	#Blastx(diamond) against NR
-	cd tax_assign && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm diamond_nr &>> $(log_file)
+5_tax_diamond: 4_assembly
+	mkdir -p $@
+	#Diamond blastx against NR
+	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm diamond_nr &>> $(log_file)
 
-tax_blast: assembly
-	mkdir -p tax_assign
-	#Blastn against NT
-	cd tax_assign && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm blastn_nt &>> $(log_file)
-
-tax_kraken: assembly
-	mkdir -p tax_assign
-	#Kraken against Refseq Bct and VRL
-	cd tax_assign && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm kraken_reports &>> $(log_file)
-
-tax_clean:
-	-cd tax_assign && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm clean-tmp
-
-metaphlan:
+5_metaphlan:
 	mkdir -p $@
 	cd $@ && $(MAKE) -rf ../steps/metaphlan.mak read_folder=../reads/ raw &>> $(log_file)
+
+# 5_tax_blast: 4_assembly
+# 	echo "This rule has not been implemented"
+#
+# 5_tax_kraken: 4_assembly
+# 	echo "This rule has not been implemented"
