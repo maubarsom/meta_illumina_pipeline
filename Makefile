@@ -25,8 +25,6 @@ ifndef sample_name
 $(error Variable sample_name not set.)
 endif
 
-export sample_name
-
 ifndef read_folder
 read_folder := reads/
 $(warning 'Read folder is assumed to be $(read_folder)')
@@ -65,35 +63,37 @@ all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_diamond tax_bl
 #QC raw reads
 1_raw_qc: $(read_folder)
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) RAW=1 fastqc &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/qc.mak sample_name=$(sample_name) read_folder=../reads/ step=raw fq_ext=$(raw_fq_ext) \
+		R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) RAW=1 fastqc &>> $(log_file)
 	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../reads/ step=raw clean-tmp
 
 #Quality filtering
 2_qf: $(read_folder)
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak read_folder=../reads/ fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/quality_filtering.mak sample_name=$(sample_name) read_folder=../reads/ \
+		fq_ext=$(raw_fq_ext) R1_filter=$(raw_R1_filter) R2_filter=$(raw_R2_filter) &>> $(log_file)
 
 #QC Quality filtering
 2_qf_qc: 2_qf
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf fq_ext=fq.gz fastqc &>> $(log_file)
-	-cd $@ && $(MAKE) -rf ../steps/qc.mak read_folder=../$^/ step=qf clean-tmp
+	cd $@ &&  $(MAKE) -rf ../steps/qc.mak sample_name=$(sample_name) read_folder=../$^/ step=qc fq_ext=fq.gz fastqc &>> $(log_file)
+	-cd $@ && $(MAKE) -rf ../steps/qc.mak sample_name=$(sample_name) read_folder=../$^/ step=qc clean-tmp
 
 #Contamination removal (human and phiX174)
 3_hostfiltering: 2_qf
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak read_folder=../$^/ step=rmcont prev_steps=qf &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak sample_name=$(sample_name)_qf read_folder=../$^/ step=hf &>> $(log_file)
 
 #Assembly step
 4_assembly: 3_hostfiltering
 	mkdir -p $@
-	cd $@ && $(MAKE) -rf ../steps/assembly.mak read_folder=../$^/ step=asm prev_steps=qf_rmcont &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/assembly.mak sample_name=$(sample_name)_qf_hf read_folder=../$^/ step=asm &>> $(log_file)
 
 #Taxonomic / Functional Annotation
 5_tax_diamond: 4_assembly
 	mkdir -p $@
 	#Diamond blastx against NR
-	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak read_folder=../$^/ ctg_folder=../$^/ step=tax ctg_steps=qf_rmcont_asm read_steps=qf_rmcont_asm diamond_nr &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak sample_name=$(sample_name)_qf_hf_asm read_folder=../$^/ ctg_folder=../$^/ step=tax diamond_nr &>> $(log_file)
 
 5_metaphlan:
 	mkdir -p $@
