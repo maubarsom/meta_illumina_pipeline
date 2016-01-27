@@ -33,11 +33,6 @@ $(warning Variable 'step' has been defined as 'qf')
 step:=qf
 endif
 
-ifndef STRATEGY
-$(info Default quality filtering strategy is nesoni+cutadapt+flash)
-STRATEGY=3_mergepairs
-endif
-
 #Outfile
 OUT_PREFIX := $(sample_name)_$(step)
 
@@ -52,7 +47,6 @@ filter_fx = $(foreach file,$(2),$(if $(findstring $(1),$(file)),$(file)))
 #Reads
 R1 := $(call filter_fx,$(R1_filter),$(wildcard $(read_folder)/*.$(fq_ext)))
 R2 := $(call filter_fx,$(R2_filter),$(wildcard $(read_folder)/*.$(fq_ext)))
-
 
 ifneq ($(words $(R1) $(R2)),2)
 $(error More than one R1 or R2 $(words $(R1) $(R2)))
@@ -78,9 +72,9 @@ nesoni_out_prefix = $(dir $@)$*
 
 .PHONY: all
 
-all: $(OUT_PREFIX)_R1.fq.gz $(OUT_PREFIX)_R2.fq.gz $(OUT_PREFIX)_single.fq.gz
+all: $(OUT_PREFIX)_R1.fq.gz $(OUT_PREFIX)_R2.fq.gz $(OUT_PREFIX)_merged.fq.gz $(OUT_PREFIX)_single.fq.gz
 
-$(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
+$(OUT_PREFIX)_%.fq.gz: $3_mergepairs/$(sample_name)_%.fq.gz
 	ln -fs $^ $@
 
 #*************************************************************************
@@ -108,13 +102,13 @@ $(OUT_PREFIX)_%.fq.gz: $(STRATEGY)/$(sample_name)_%.fq.gz
 	$(CUTADAPT_BIN) --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 -o $(dir $@)/$*_single.fq.gz $(TMP_DIR)/cutadapt_single.fq.gz
 	-rm $(TMP_DIR)/cutadapt_*.fq.gz
 
-3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_single.fq.gz: 2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz
+3_mergepairs/%_R1.fq.gz 3_mergepairs/%_R2.fq.gz 3_mergepairs/%_merged.fq.gz 3_mergepairs/%_single.fq.gz: 2_cutadapt/%_R1.fq.gz 2_cutadapt/%_R2.fq.gz 2_cutadapt/%_single.fq.gz
 	mkdir -p $(dir $@)
 	$(FLASH_BIN) -m $(pairmerge_min_ovlp) -M $(READ_LEN)  $(word 1,$^) $(word 2,$^) -o out -d $(dir $@)
 	cd $(dir $@) && mv out.notCombined_1.fastq $*_R1.fq && gzip $*_R1.fq
 	cd $(dir $@) && mv out.notCombined_2.fastq $*_R2.fq && gzip $*_R2.fq
-	cd $(dir $@) && mv out.extendedFrags.fastq $*_merged.fq
-	cd $(dir $@) && gunzip -c ../$(word 3,$^) | cat $*_merged.fq | gzip > $*_single.fq.gz
+	cd $(dir $@) && mv out.extendedFrags.fastq $*_merged.fq && gzip $*_merged.fq
+	cd $(dir $@) && ln -fs ../$(word 3,$^)
 
 .PHONY: clean
 clean:
