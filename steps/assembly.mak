@@ -87,11 +87,11 @@ samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 #Avoids the deletion of files because of gnu make behavior with implicit rules
 .SECONDARY:
 
-.INTERMEDIATE: $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_se.fq $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
+.INTERMEDIATE: $(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_single.fq $(TMP_DIR)/singletons_merged.fq $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 
 .PHONY: all
 
-all: $(OUT_PREFIX)_contigs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_se.fa
+all: $(OUT_PREFIX)_contigs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_single.fa $(OUT_PREFIX)_merged.fa
 
 #Concatenate the contigs from all assembly strategies into a single file
 $(OUT_PREFIX)_contigs.fa: $(CTG_FILES)
@@ -141,7 +141,7 @@ contigs/$(OUT_PREFIX)_megahit_contigs.fa: megahit/final.contigs.fa
 #*************************************************************************
 spades/contigs.fasta: $(INPUT_PE) $(INPUT_SINGLE) $(INPUT_MERGED)
 	mkdir -p $(dir $@)
-	$(SPADES_BIN) -t $(threads) --pe1-12 $< -pe1-s $(word 2,$^) --s1 $(word 3,$^) -o $(dir $@) --tmp-dir $(TMP_DIR) -m 64
+	$(SPADES_BIN) -t $(threads) --pe1-12 $< --pe1-s $(word 2,$^) --s1 $(word 3,$^) -o $(dir $@) --tmp-dir $(TMP_DIR) -m 64
 
 contigs/$(OUT_PREFIX)_spades_contigs.fa: spades/contigs.fasta
 	mkdir -p $(dir $@)

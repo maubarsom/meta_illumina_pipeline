@@ -56,9 +56,9 @@ timestamp := $(shell date +%s)
 log_name = $(sample_name)_$@_$(timestamp).log
 log_file = >(tee -a $(log_name) >&2)
 
-.PHONY: all raw_qc qf_qc quality_filtering contamination_rm assembly tax_blast tax_diamond tax_kraken metaphlan
+.PHONY: all 1_raw_qc 2_qf 2_qf_qc 3_hostfiltering 4_assembly 5_tax_diamond 5_metaphlan
 
-all: raw_qc quality_filtering qf_qc contamination_rm assembly tax_diamond tax_blast tax_kraken metaphlan
+all: 1_raw_qc 2_qf 2_qf_qc 3_hostfiltering 4_assembly 5_tax_diamond 5_metaphlan
 
 #QC raw reads
 1_raw_qc: $(read_folder)

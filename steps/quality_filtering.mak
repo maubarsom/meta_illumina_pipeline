@@ -74,7 +74,7 @@ nesoni_out_prefix = $(dir $@)$*
 
 all: $(OUT_PREFIX)_R1.fq.gz $(OUT_PREFIX)_R2.fq.gz $(OUT_PREFIX)_merged.fq.gz $(OUT_PREFIX)_single.fq.gz
 
-$(OUT_PREFIX)_%.fq.gz: $3_mergepairs/$(sample_name)_%.fq.gz
+$(OUT_PREFIX)_%.fq.gz: 3_mergepairs/$(sample_name)_%.fq.gz
 	ln -fs $^ $@
 
 #*************************************************************************
