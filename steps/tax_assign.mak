@@ -28,11 +28,6 @@ ifndef in_folder
 $(error Variable 'in_folder' is not defined)
 endif
 
-ifndef in_steps
-in_steps := qf_rmcont_asm
-$(info 'in_steps' is assumed to be $(in_steps))
-endif
-
 ifndef step
 step:= tax
 $(warning Variable 'step' has been defined as '$(step)')
@@ -44,8 +39,11 @@ ifndef threads
 endif
 
 #Input and Output file prefixes
-IN_CTG_PREFIX := $(sample_name)_$(ctg_steps)
-IN_READ_PREFIX := $(sample_name)_$(read_steps)
+INPUT_CONTIG := $(sample_name)_contigs
+INPUT_PE := $(sample_name)_pe
+INPUT_SINGLE := $(sample_name)_single
+INPUT_MERGED := $(sample_name)_merged
+
 OUT_PREFIX:= $(IN_CTG_PREFIX)_$(step)
 
 #Blast parameters
@@ -53,8 +51,7 @@ blast_params:= -evalue 1 -num_threads $(threads) -max_target_seqs 10 -outfmt 5 -
 megablast_params:= -reward 2 -penalty -3 -gapopen 5 -gapextend 2
 blastn_params:= -reward 4 -penalty -5 -gapopen 12 -gapextend 8
 
-ctg_outfile = $(1)/$(IN_CTG_PREFIX)_allctgs_$(2)
-read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
+generate_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(sample_name)_,$(3)))
 
 #Delete produced files if step fails
 .DELETE_ON_ERROR:
@@ -64,27 +61,23 @@ read_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(IN_READ_PREFIX)_,$(3)))
 .INTERMEDIATE: $(TMP_DIR)/%.fa
 
 .PHONY: all
-.PHONY: kraken_reports blastn_vir blastn_nt
-.PHONY: blastp_vir blastp_nr blastp_sprot
-.PHONY: blastx_vir blastx_nr blastx_sprot
-.PHONY: hmmscan_pfam hmmscan_vfam phmmer_vir phmmer_sprot
+.PHONY: hmmscan_pfam hmmscan_vfam
+.PHONY: phmmer_vir phmmer_sprot
 
 all: diamond_nr
 # all: hmmscan_pfam hmmscan_vfam
-# all: phmmer_vir
+# all: phmmer_vir phmmer_sprot
 
 #Outputs
-diamond_nr : $(call ctg_outfile,diamond,diamond_nr.sam.gz.md5)
-diamond_nr : $(call read_outfiles,diamond,diamond_nr.sam.gz.md5,pe se)
+diamond_nr :   $(call generate_outfiles,diamond,diamond_nr.sam.gz.md5,contigs pe single merged)
 
-phmmer_vir : $(call ctg_outfile,phmmer,fgs_phmmer_refseqvir.tbl)
-phmmer_sprot : $(call ctg_outfile,phmmer,fgs_phmmer_sprot.tbl)
+phmmer_vir :   $(call generate_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,contigs)
 
-hmmscan_pfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_pfam.tbl)
-hmmscan_pfam : $(call read_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,pe se)
+phmmer_sprot : $(call generate_outfiles,phmmer,fgs_phmmer_sprot.tbl,contigs )
 
-hmmscan_vfam : $(call ctg_outfile,hmmscan,fgs_hmmscan_vfam.tbl)
-hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
+hmmscan_pfam : $(call generate_outfiles,hmmscan,fgs_hmmscan_pfam.tbl,contigs pe single merged)
+
+hmmscan_vfam : $(call generate_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,contigs pe single merged)
 
 #*************************************************************************
 #Diamond (Tubingen) - Proteins
@@ -92,10 +85,6 @@ hmmscan_vfam : $(call read_outfiles,hmmscan,fgs_hmmscan_vfam.tbl,pe se)
 #Contigs to NR
 #Can add --sensitive flag for slower but more accurate results
 #--seg yes/no for low complexity masking
-diamond/%_diamond_nr.daa : $(in_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
-
 diamond/%_diamond_nr.daa : $(in_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(DIAMOND_BIN) blastx --sensitive -p $(threads) --db $(diamond_nr) --query $< --daa $@ --tmpdir $(TMP_DIR) --seg yes
@@ -108,30 +97,12 @@ $(TMP_DIR)/%_diamond_nohits.fa: diamond/%_diamond_nr.sam.gz ../assembly/%.fa
 	python ../scripts/extract_diamond_nohits.py $< $(word 2)
 
 #*************************************************************************
-#EMBOSS ORF prediction
-#*************************************************************************
-#Contig analysis
-orf/%_emboss_find0.faa: $(in_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10
-
-#Read analysis
-orf/%_emboss_find1.faa : $(in_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10
-
-#*************************************************************************
 #FragGeneScan
 #*************************************************************************
 #Contig analysis
 fgs/%_fgs.faa: $(in_folder)/%.fa
 	mkdir -p $(dir $@)
 	$(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10
-
-#Read analysis
-fgs/%_fgs.faa : $(in_folder)/%.fa
-	mkdir -p $(dir $@)
-	$(FGS_BIN) -genome=$< -out=$(basename $@) -complete=0 -train=illumina_10
 
 #*************************************************************************
 #HMMSCAN
