@@ -103,6 +103,7 @@ $(TMP_DIR)/%_diamond_nohits.fa: diamond/%_diamond_nr.sam.gz ../assembly/%.fa
 #*************************************************************************
 #The script assumes files with contigs pe single and merged.sam.gz
 megan/$(sample_name)_diamond_nr.rma: $(call generate_outfiles,diamond,diamond_nr.sam.gz,contigs pe single merged) | ../scripts/megan_diamond_nr.m4
+	mkdir -p $(dir $@)
 	m4 -DTAX2GI=$(megan_gi2tax) -DPREFIX=$(sample_name) -DOUT_FILE=$@ $| > $(TMP_DIR)/megan_script.txt
 	$(MEGAN_BIN) -g -c $(TMP_DIR)/megan_script.txt
 
