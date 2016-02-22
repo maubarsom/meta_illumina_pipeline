@@ -93,7 +93,7 @@ all: 1_raw_qc 2_qf 2_qf_qc 3_hostfiltering 4_assembly 5_tax_diamond 5_metaphlan
 5_tax_diamond: 4_assembly
 	mkdir -p $@/log
 	#Diamond blastx against NR
-	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak sample_name=$(sample_name)_qf_hf_asm in_folder=../$^/ step=tax diamond_nr &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/tax_assign.mak sample_name=$(sample_name)_qf_hf_asm in_folder=../$^/ step=tax megan &>> $(log_file)
 
 5_metaphlan:
 	mkdir -p $@/log

@@ -64,12 +64,14 @@ generate_outfiles = $(addsuffix _$(2),$(addprefix $(1)/$(sample_name)_,$(3)))
 .PHONY: hmmscan_pfam hmmscan_vfam
 .PHONY: phmmer_vir phmmer_sprot
 
-all: diamond_nr
+all: megan #diamond_nr
 # all: hmmscan_pfam hmmscan_vfam
 # all: phmmer_vir phmmer_sprot
 
 #Outputs
 diamond_nr :   $(call generate_outfiles,diamond,diamond_nr.sam.gz.md5,contigs pe single merged)
+
+megan: megan/$(sample_name)_diamond_nr.rma
 
 phmmer_vir :   $(call generate_outfiles,phmmer,fgs_phmmer_refseqvir.tbl,contigs)
 
@@ -100,8 +102,9 @@ $(TMP_DIR)/%_diamond_nohits.fa: diamond/%_diamond_nr.sam.gz ../assembly/%.fa
 # MEGAN 5 parsing of diamond results
 #*************************************************************************
 #The script assumes files with contigs pe single and merged.sam.gz
-megan/$(sample_name)_diamond_nr.rma: $(call generate_outfiles,diamond,diamond_nr.sam.gz,contigs pe single merged)
-	$(MEGAN_BIN) -g -c <(m4 -DTAX2GI=$(megan_gi2tax) -DPREFIX=$(sample_name) -DOUT_FILE=$@)
+megan/$(sample_name)_diamond_nr.rma: $(call generate_outfiles,diamond,diamond_nr.sam.gz,contigs pe single merged) | ../scripts/megan_diamond_nr.m4
+	m4 -DTAX2GI=$(megan_gi2tax) -DPREFIX=$(sample_name) -DOUT_FILE=$@ $| > $(TMP_DIR)/megan_script.txt
+	$(MEGAN_BIN) -g -c $(TMP_DIR)/megan_script.txt
 
 #*************************************************************************
 #FragGeneScan
