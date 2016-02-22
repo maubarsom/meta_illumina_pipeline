@@ -97,6 +97,13 @@ $(TMP_DIR)/%_diamond_nohits.fa: diamond/%_diamond_nr.sam.gz ../assembly/%.fa
 	python ../scripts/extract_diamond_nohits.py $< $(word 2)
 
 #*************************************************************************
+# MEGAN 5 parsing of diamond results
+#*************************************************************************
+#The script assumes files with contigs pe single and merged.sam.gz
+megan/$(sample_name)_diamond_nr.rma: $(call generate_outfiles,diamond,diamond_nr.sam.gz,contigs pe single merged)
+	$(MEGAN_BIN) -g -c <(m4 -DTAX2GI=$(megan_gi2tax) -DPREFIX=$(sample_name) -DOUT_FILE=$@)
+
+#*************************************************************************
 #FragGeneScan
 #*************************************************************************
 #Contig analysis
