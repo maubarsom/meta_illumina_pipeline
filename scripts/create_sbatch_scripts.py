@@ -39,12 +39,12 @@ def main(args):
 	steps = ["qc","qf","rmcont","asm","tax_blast","tax_diamond","metaphlan2" ]
 	modules = {
 		"qc": ["+java/sun_jdk1.7.0_25" ],
-		"qf" :["+FLASH/1.2.11","+java/sun_jdk1.7.0_25" ],
-		"rmcont":["+bowtie2/2.2.3","+picard/1.127"],
-		"asm":["-gcc","+bwa/0.7.12","+picard/1.127","+spades/3.6.0","+fermi/1.1-r751-beta"],
-		"tax_blast":["+blast/2.2.29+"],
-		"tax_diamond":["+diamond/0.7.9"],
-		"metaphlan2" : ["+bowtie2/2.2.3"],
+		"qf" :["+bioinfo-tools","+FLASH/1.2.11","+java/sun_jdk1.7.0_25" ],
+		"rmcont":["+bioinfo-tools","+bowtie2/2.2.3","+picard/1.141"],
+		"asm":["-gcc","+bioinfo-tools","+bwa/0.7.13","+picard/1.141","+spades/3.6.1","+fermi/1.1-r751-beta"],
+		"tax_blast":["+bioinfo-tools","+blast/2.2.31+"],
+		"tax_diamond":["+java/sun_jdk1.7.0_25","+bioinfo-tools","+diamond/0.7.9"],
+		"metaphlan2" : ["+bioinfo-tools","+bowtie2/2.2.6"],
 	}
 
 	#Folders to add to PATH
@@ -53,7 +53,7 @@ def main(args):
 		"qf":		["/proj/b2011088/tools/anaconda/bin" ],
 		"rmcont":	["/proj/b2011088/tools/anaconda/bin" ],
 		"asm":		["/proj/b2011088/tools/anaconda/bin",
-				 "/proj/b2011088/tools/megahit/1.0.2"],
+				 	"/proj/b2011088/tools/megahit/1.0.2"],
 		"tax_blast":	["/proj/b2011088/tools/anaconda/bin" ],
 		"tax_diamond":	["/proj/b2011088/tools/anaconda/bin" ],
 		"metaphlan2":	["/proj/b2011088/tools/anaconda/bin" ]
@@ -117,13 +117,9 @@ def main(args):
 			#Add external tools to PATH
 			fh.write( append_to_path(ext_tool_path[step]) )
 
-			#Assumes cfg/uppmax.cfg is the template to use
+			#Assumes cfg/uppmax.cfg is the configuration to use
 			#TODO: choose base configuration file from arguments
-			tmp_cfg_file = "cfg/uppmax_"+step+".cfg"
-			fh.write("cp cfg/uppmax.cfg "+tmp_cfg_file +"\n")
-			fh.write('echo "export TMP_DIR := $SNIC_TMP" >> '+tmp_cfg_file+"\n")
-			fh.write("make -r sample_name="+args.sample_name+" cfg_file="+tmp_cfg_file+" "+step_makefile_rule[step]+"\n")
-			fh.write("rm "+tmp_cfg_file)
+			fh.write("make -r sample_name={} cfg_file=cfg/uppmax.cfg {}\n".format(args.sample_name,step_makefile_rule[step]))
 
 #*****************End of Main**********************
 
