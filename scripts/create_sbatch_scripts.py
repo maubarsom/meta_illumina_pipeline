@@ -36,7 +36,7 @@ import logging
 
 #****************Begin of Main ***************
 def main(args):
-	steps = ["qc","qf","rmcont","asm","tax_blast","tax_diamond","metaphlan2" ]
+	steps = ["qc","qf","rmcont","asm","tax_diamond","metaphlan2" ]
 	modules = {
 		"qc": ["+java/sun_jdk1.7.0_25" ],
 		"qf" :["+bioinfo-tools","+FLASH/1.2.11","+java/sun_jdk1.7.0_25" ],
@@ -80,13 +80,13 @@ def main(args):
 	}
 
 	step_makefile_rule = {
-		"qc": "raw_qc",
-		"qf" : "qf_qc",
-		"rmcont": "contamination_rm",
-		"asm": "assembly",
-		"tax_blast": "tax_blast",
-		"tax_diamond": "tax_diamond",
-		"metaphlan2":	"metaphlan"
+		"qc":		"1_raw_qc",
+		"qf":		"2_qf_qc",
+		"rmcont": 	"3_hostfiltering",
+		"asm": 		"4_assembly",
+		"tax_blast": "5_tax_blast",
+		"tax_diamond": "5_tax_diamond",
+		"metaphlan2":	"5_metaphlan"
 	}
 
 	#Create log file for sbatch logs
