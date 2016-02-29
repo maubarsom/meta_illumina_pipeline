@@ -10,6 +10,7 @@
 
 set -euo pipefail
 
+module load bioinfo-tools
 module load hmmer
 module load emboss
 module load seqtk
