@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-module load hmmer
-module load emboss
+module load hmmer/3.1b2
+module load emboss/6.5.7
 
 sample_name=$(basename 4_assembly/*_contigs.fa _contigs.fa)
 threads=16
