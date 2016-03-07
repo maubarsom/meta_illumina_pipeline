@@ -6,10 +6,10 @@ SAMPLE:= sample
 threads := 16
 
 ifdef UPPMAX
-PfamA_hmm := /proj/b2011088/nobackup/db/hmmerdb/Pfam-A.hmm
+PfamA_hmm := /proj/b2011088/nobackup/db/hmmerdb/Pfam-A_r29/Pfam-A.hmm
 vFamA_hmm := /proj/b2011088/nobackup/db/hmmerdb/vFam-A_2014.hmm
 else #Assume Hamlet config
-PfamA_hmm := /labcommon/db/hmmerdb/Pfam-A/Pfam-A.hmm
+PfamA_hmm := /labcommon/db/hmmerdb/Pfam-A_r29/Pfam-A.hmm
 vFamA_hmm := /labcommon/db/hmmerdb/vFam-A/vFam-A_2014.hmm
 endif
 
