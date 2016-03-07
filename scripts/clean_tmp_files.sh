@@ -17,7 +17,7 @@ rm 3_hostfiltering/*.fq
 #Remove assembler-specific folders
 rm -r 4_assembly/fermi
 rm -r 4_assembly/megahit
-rm -r 4_assembly/spades
+rm -rf 4_assembly/spades
 
 #Remove tmp mapping files to determine non-incorporated reads
 rm 4_assembly/singletons/*.sam
