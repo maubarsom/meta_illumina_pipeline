@@ -40,10 +40,10 @@ def main(args):
 	modules = {
 		"qc": ["+java/sun_jdk1.7.0_25" ],
 		"qf" :["+bioinfo-tools","+FLASH/1.2.11","+java/sun_jdk1.7.0_25" ],
-		"rmcont":["+bioinfo-tools","+bowtie2/2.2.3","+picard/1.141"],
-		"asm":["-gcc","+bioinfo-tools","+bwa/0.7.13","+picard/1.141","+spades/3.6.1","+fermi/1.1-r751-beta"],
+		"rmcont":["+bioinfo-tools","+bowtie2/2.2.6","+picard/2.0.1"],
+		"asm":["-gcc","+bioinfo-tools","+bwa/0.7.13","+picard/2.0.1","+spades/3.7.0","+fermi/1.1-r751-beta"],
 		"tax_blast":["+bioinfo-tools","+blast/2.2.31+"],
-		"tax_diamond":["+java/sun_jdk1.7.0_25","+bioinfo-tools","+diamond/0.7.9"],
+		"tax_diamond":["+java/sun_jdk1.8.0_40","+bioinfo-tools","+diamond/0.7.9"],
 		"metaphlan2" : ["+bioinfo-tools","+bowtie2/2.2.6"],
 	}
 

@@ -11,8 +11,8 @@
 set -euo pipefail
 
 module load bioinfo-tools
-module load hmmer
-module load emboss
+module load hmmer/3.1b2
+module load emboss/6.5.7
 module load seqtk
 
 sample_name=$(basename 4_assembly/*_contigs.fa _contigs.fa)
