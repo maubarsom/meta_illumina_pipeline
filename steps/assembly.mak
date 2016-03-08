@@ -233,24 +233,20 @@ contigs_filt/%_ctgs_filt.fa: contigs/%_contigs.fa
 $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt: $(OUT_PREFIX)_contigs.fa
 	$(BWA_BIN) index -p $(basename $@) $<
 
-singletons/pe_to_contigs.sam: $(INPUT_PE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
+singletons/pe_to_contigs.bam: $(INPUT_PE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< > $@
+	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
 
-singletons/single_to_contigs.sam: $(INPUT_SINGLE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
+singletons/single_to_contigs.bam: $(INPUT_SINGLE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
 
-singletons/merged_to_contigs.sam: $(INPUT_MERGED) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
+singletons/merged_to_contigs.bam: $(INPUT_MERGED) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< > $@
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
 
-$(TMP_DIR)/singletons_pe.fq $(TMP_DIR)/singletons_single.fq $(TMP_DIR)/singletons_merged.fq: $(TMP_DIR)/singletons_%.fq: singletons/%_to_contigs.sam
-	$(SAMTOOLS_BIN) view -F 256 -hSb $^ | $(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb -o $(basename $@).bam -
-	$(PICARD_BIN) SamToFastq INPUT=$(basename $@).bam FASTQ=$@ INTERLEAVE=True
-
-singletons/singletons_%.fa : $(TMP_DIR)/singletons_%.fq
-	$(SEQTK_BIN) seq -A $^ > $@
+singletons/singletons_pe.fa singletons/singletons_single.fa singletons/singletons_merged.fa: $(TMP_DIR)/singletons_%.fa: singletons/%_to_contigs.bam
+	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb $< | $(PICARD_BIN) SamToFastq INPUT=/dev/stdin FASTQ=/dev/stdout INTERLEAVE=True | $(SEQTK_BIN) seq -A - > $@
 
 .PHONY: clean
 clean:
