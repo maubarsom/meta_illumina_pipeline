@@ -65,9 +65,9 @@ merged := $(read_folder)/$(sample_name)_merged.fq.gz
 all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_single.fq $(OUT_PREFIX)_merged.fq
 all: $(MAPPER)/$(OUT_PREFIX)_pe.bam.md5 $(MAPPER)/$(OUT_PREFIX)_single.bam.md5 $(MAPPER)/$(OUT_PREFIX)_merged.bam.md5
 
-stats: $(addprefix stats/$(OUT_PREFIX)_pe.$(MAPPER).bam,.flgstat .stats .depth)
-stats: $(addprefix stats/$(OUT_PREFIX)_single.$(MAPPER).bam,.flgstat .stats .depth)
-stats: $(addprefix stats/$(OUT_PREFIX)_merged.$(MAPPER).bam,.flgstat .stats .depth)
+stats: $(addprefix stats/$(OUT_PREFIX)_pe.$(MAPPER).bam,.flgstat .stats .depth.gz)
+stats: $(addprefix stats/$(OUT_PREFIX)_single.$(MAPPER).bam,.flgstat .stats .depth.gz)
+stats: $(addprefix stats/$(OUT_PREFIX)_merged.$(MAPPER).bam,.flgstat .stats .depth.gz)
 
 #*************************************************************************
 #Map to human genome with BWA MEM
