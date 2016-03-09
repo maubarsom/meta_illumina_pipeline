@@ -63,8 +63,11 @@ merged := $(read_folder)/$(sample_name)_merged.fq.gz
 #It can also output separate R1 and R2 for paired-ends insteads of interleaved
 #all: $(addprefix $(OUT_PREFIX)_,R1.fq R2.fq single.fq merged.fq)
 all: $(OUT_PREFIX)_pe.fq $(OUT_PREFIX)_single.fq $(OUT_PREFIX)_merged.fq
-all: $(addprefix stats/$(OUT_PREFIX)_,pe.$(MAPPER).bam.flgstat single.$(MAPPER).bam.flgstat merged.$(MAPPER).bam.flgstat)
 all: $(MAPPER)/$(OUT_PREFIX)_pe.bam.md5 $(MAPPER)/$(OUT_PREFIX)_single.bam.md5 $(MAPPER)/$(OUT_PREFIX)_merged.bam.md5
+
+stats: $(addprefix stats/$(OUT_PREFIX)_pe.$(MAPPER).bam,.flgstat .stats .depth)
+stats: $(addprefix stats/$(OUT_PREFIX)_single.$(MAPPER).bam,.flgstat .stats .depth)
+stats: $(addprefix stats/$(OUT_PREFIX)_merged.$(MAPPER).bam,.flgstat .stats .depth)
 
 #*************************************************************************
 #Map to human genome with BWA MEM
@@ -101,6 +104,14 @@ bowtie2/%_merged.bam: $(merged)
 stats/%.$(MAPPER).bam.flgstat: $(MAPPER)/%.bam
 	mkdir -p $(dir $@)
 	$(SAMTOOLS_BIN) flagstat $< > $@
+
+stats/%.$(MAPPER).bam.stats: $(MAPPER)/%.bam
+	mkdir -p $(dir $@)
+	$(SAMTOOLS_BIN) stats $< > $@
+
+stats/%.$(MAPPER).bam.depth.gz : $(MAPPER)/%.bam
+	mkdir -p $(dir $@)
+	$(SAMTOOLS_BIN) sort $< | $(SAMTOOLS_BIN) depth - | gzip > $@
 
 #*************************************************************************
 #Extract unmapped reads using Samtools / Picard Tools

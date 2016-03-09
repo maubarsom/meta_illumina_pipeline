@@ -82,12 +82,12 @@ all: 1_raw_qc 2_qf 2_qf_qc 3_hostfiltering 4_assembly 5_tax_diamond 5_metaphlan
 #Contamination removal (human and phiX174)
 3_hostfiltering: 2_qf
 	mkdir -p $@/log
-	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak sample_name=$(sample_name)_qf read_folder=../$^/ step=hf &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/contamination_rm.mak sample_name=$(sample_name)_qf read_folder=../$^/ step=hf all stats &>> $(log_file)
 
 #Assembly step
 4_assembly: 3_hostfiltering
 	mkdir -p $@/log
-	cd $@ && $(MAKE) -rf ../steps/assembly.mak sample_name=$(sample_name)_qf_hf read_folder=../$^/ step=asm &>> $(log_file)
+	cd $@ && $(MAKE) -rf ../steps/assembly.mak sample_name=$(sample_name)_qf_hf read_folder=../$^/ step=asm all stats &>> $(log_file)
 
 #Taxonomic / Functional Annotation
 5_tax_diamond: 4_assembly

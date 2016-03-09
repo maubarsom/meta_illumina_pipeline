@@ -93,6 +93,10 @@ samtools_filter_flag = $(if $(filter pe,$*),-F2,-f4)
 
 all: $(OUT_PREFIX)_contigs.fa $(OUT_PREFIX)_pe.fa $(OUT_PREFIX)_single.fa $(OUT_PREFIX)_merged.fa
 
+stats: $(addprefix stats/merged_to_contigs.bam,.stats .flgstat .depth.gz)
+stats: $(addprefix stats/single_to_contigs.bam,.stats .flgstat .depth.gz)
+stats: $(addprefix stats/pe_to_contigs.bam,.stats .flgstat .depth.gz)
+
 #Concatenate the contigs from all assembly strategies into a single file
 $(OUT_PREFIX)_contigs.fa: $(CTG_FILES)
 	cat $^ > $@
@@ -248,11 +252,23 @@ singletons/merged_to_contigs.bam: $(INPUT_MERGED) $(TMP_DIR)/$(OUT_PREFIX)_conti
 singletons/singletons_pe.fa singletons/singletons_single.fa singletons/singletons_merged.fa: singletons/singletons_%.fa: singletons/%_to_contigs.bam
 	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb $< | $(PICARD_BIN) SamToFastq INPUT=/dev/stdin FASTQ=/dev/stdout INTERLEAVE=True | $(SEQTK_BIN) seq -A - > $@
 
+#*************************************************************************
+# Calculate mapping stats
+#*************************************************************************
+stats/%.bam.flgstat: singletons/%.bam
+	mkdir -p $(dir $@)
+	$(SAMTOOLS_BIN) flagstat $< > $@
+
+stats/%.bam.stats: singletons/%.bam
+	mkdir -p $(dir $@)
+	$(SAMTOOLS_BIN) stats $< > $@
+
+stats/%.bam.depth.gz : singletons/%.bam
+	mkdir -p $(dir $@)
+	$(SAMTOOLS_BIN) sort $< | $(SAMTOOLS_BIN) depth - | gzip > $@
+
 .PHONY: clean
 clean:
-	-rm -r sga/
-	-rm -r abyss/
-	-rm -r raymeta/
 	-rm -r fermi/
-	-rm -r masurca/
-	-rm *.contigs.fa *.ctgs_filt.fa
+	-rm -r megahit/
+	-rm -rf spades/
