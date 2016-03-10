@@ -239,18 +239,18 @@ $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt: $(OUT_PREFIX)_contigs.fa
 
 singletons/pe_to_contigs.bam: $(INPUT_PE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
+	$(BWA_BIN) mem -t $(threads) -T 30 -M -p $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -hSb -o $@ -
 
 singletons/single_to_contigs.bam: $(INPUT_SINGLE) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -hSb -o $@ -
 
 singletons/merged_to_contigs.bam: $(INPUT_MERGED) $(TMP_DIR)/$(OUT_PREFIX)_contigs.fa.bwt
 	mkdir -p singletons
-	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -F 256 -hSb -o $@ -
+	$(BWA_BIN) mem -t $(threads) -T 30 -M    $(basename $(word 2,$^)) $< | $(SAMTOOLS_BIN) view -hSb -o $@ -
 
 singletons/singletons_pe.fa singletons/singletons_single.fa singletons/singletons_merged.fa: singletons/singletons_%.fa: singletons/%_to_contigs.bam
-	$(SAMTOOLS_BIN) view $(samtools_filter_flag) -hb $< | $(PICARD_BIN) SamToFastq INPUT=/dev/stdin FASTQ=/dev/stdout INTERLEAVE=True | $(SEQTK_BIN) seq -A - > $@
+	$(SAMTOOLS_BIN) view -F 256 $(samtools_filter_flag) -hb $< | $(PICARD_BIN) SamToFastq INPUT=/dev/stdin FASTQ=/dev/stdout INTERLEAVE=True | $(SEQTK_BIN) seq -A - > $@
 
 #*************************************************************************
 # Calculate mapping stats
