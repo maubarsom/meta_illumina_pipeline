@@ -22,17 +22,20 @@ init:
 	sudo mount -t tmpfs -o size=$(tmpfs_size) tmpfs $(tmpfs_mount_folder)
 
 trimgalore: init 
-	time bash 1_run_trimgalore.sh $(read_folder) $(tmpfs_mount_folder) 2>&1 | tee trimgalore.step.log
+	mkdir -p log
+	time bash 1_run_trimgalore.sh $(read_folder) $(tmpfs_mount_folder) 2>&1 | tee log/$@.step.log
 
 #trimgalore_stats: trimgalore
 #	time bash 2_trimgalore_stats.sh $(tmpfs_mount_folder)
 
 #2nd step: Remove SISPA overhangs and discard human reads
 2_filter_pe: trimgalore
-	time bash 2_filter_pe.sh $(sample_id) $(tmpfs_mount_folder) 
+	mkdir -p log
+	time bash 2_filter_pe.sh $(sample_id) $(tmpfs_mount_folder) 2>&1 | tee log/$@.step.log
 
-#2_filter_se: trimgalore
-#	time bash 2_filter_se.sh $(sample_id) $(tmpfs_mount_folder)
+2_filter_unpaired: trimgalore
+	mkdir -p log
+	time bash 2_filter_unpaired.sh $(sample_id) $(tmpfs_mount_folder) 2>&1 | tee log/$@.step.log
 
 clean:
 	rm -i $(tmpfs_mount_folder)/*

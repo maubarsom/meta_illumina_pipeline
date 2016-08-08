@@ -12,4 +12,4 @@ trim_galore -q 20 --fastqc --fastqc_args "-k 10 -t 16" --illumina --paired --gzi
 	--stringency 5 --length 50 --output_dir ${OUT_DIR} --trim1 \
 	--retain_unpaired -r1 75 -r2 75 $(ls ${READS_DIR}/*.fastq.gz | sort)
 
-cp ${OUT_DIR}/*.txt ${OUT_DIR}/*.fastqc.zip 1_trimgalore/
+cp ${OUT_DIR}/*.txt ${OUT_DIR}/*fastqc.zip ${OUT_DIR}/*.html 1_trimgalore/
