@@ -24,10 +24,10 @@ mkdir -p log
 
 #Requires cutadapt
 cutadapt --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 \
-	-o R1_PIPE ${IN_DIR}/*_val_1.fq.gz 2>&1 > log/overhangs_R1.log &
+	-o R1_PIPE ${IN_DIR}/*_val_1.fq.gz 2>&1 > log/${SAMPLE_ID}_overhangs_R1.log &
 
 cutadapt --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 \
-	-o R2_PIPE ${IN_DIR}/*_val_2.fq.gz 2>&1 > log/overhangs_R2.log &
+	-o R2_PIPE ${IN_DIR}/*_val_2.fq.gz 2>&1 > log/${SAMPLE_ID}_overhangs_R2.log &
 
 bowtie2 --local --very-sensitive-local -t -p 12 -x ${BOWTIE_DB} -1 R1_PIPE -2 R2_PIPE | tee >(samtools view -hSb - | samtools flagstat - > log/bowtie_pe.flagstat ) | samtools view -hSb -f12 -F256 - | samtools fastq - | gzip > ${OUT_FILE}
 
