@@ -11,7 +11,7 @@ endif
 
 tmpfs_mount_folder := ./tmp
 #Twice the size of the raw reads
-tmpfs_size = $(shell echo "$$(du -L $(read_folder) | sed -r "s/\t.+//")*2000" | bc )
+tmpfs_size = $(shell echo "$$(du -L --max-depth 0 $(read_folder) | sed -r "s/\t.+//")*2000" | bc )
 
 .PHONY: all trimgalore trimgalore_stats 2_filter_pe 2_filter_unpaired 2_filter_stats
 
