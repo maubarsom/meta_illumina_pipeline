@@ -10,6 +10,6 @@ export PATH=${SCRIPTS_DIR}:${PATH}
 
 make -j 3 -f ${SCRIPTS_DIR}/Makefile \
 			sample_id=${SAMPLE_ID} \
-			reads=${READS_DIR}
+			read_folder=${READS_DIR}
 
 export PATH=${OLD_PATH}
