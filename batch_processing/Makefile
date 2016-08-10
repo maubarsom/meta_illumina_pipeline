@@ -44,5 +44,5 @@ trimgalore_stats: trimgalore
 	zcat $(sample_id)_unpaired.fq.gz | sed -n "2~4p" | awk 'BEGIN{bases=0;reads=0;} {bases+=length($1);reads+=1} END{print reads,bases}' > log/${sample_id}_2_filter_unpaired.stats
 
 clean:
-	rm -i $(tmpfs_mount_folder)/*
+	rm $(tmpfs_mount_folder)/*
 	sudo umount $(tmpfs_mount_folder)
