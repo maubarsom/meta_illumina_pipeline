@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo verbose -o pipefail
+IFS=$'\n\t'
 
 READS_DIR=$1
 OUT_DIR=$2
