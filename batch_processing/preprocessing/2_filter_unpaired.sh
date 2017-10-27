@@ -2,8 +2,8 @@
 
 set -euo verbose -o pipefail
 
-module load bowtie2
-module load samtools
+module load bowtie2/2.3.0
+module load samtools/1.3
 
 BOWTIE_DB=/labcommon/db/bowtie2/grch38
 
@@ -13,7 +13,7 @@ IN_DIR=$2
 OUT_FILE=${SAMPLE_ID}_unpaired.fq.gz
 
 #If output file exists, do nothing
-if [ -e ${OUT_FILE} ]; then 
+if [ -e ${OUT_FILE} ]; then
 	echo "File ${OUT_FILE} already exists. Delete file to regenerate"
 	exit 0;
 fi

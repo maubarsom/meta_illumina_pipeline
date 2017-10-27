@@ -4,7 +4,7 @@ set -euo verbose -o pipefail
 READS_DIR=$1
 OUT_DIR=$2
 
-module load trimgalore
+module load trimgalore/0.4.1
 
 mkdir -p 1_trimgalore
 

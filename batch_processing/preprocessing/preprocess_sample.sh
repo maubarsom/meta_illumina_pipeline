@@ -3,7 +3,7 @@ set -euo verbose -o pipefail
 
 SAMPLE_ID=$1
 READS_DIR=$2
-SCRIPTS_DIR=/labcommon/viral_discovery/meta_illumina_pipeline/batch_processing
+SCRIPTS_DIR=/labcommon/viral_discovery/meta_illumina_pipeline/batch_processing/preprocessing
 
 OLD_PATH=${PATH}
 export PATH=${SCRIPTS_DIR}:${PATH}
