@@ -33,6 +33,10 @@ process remove_sispa_adapters_se{
   """
 }
 
+
+/**
+TODO: This should remove both PhiX and Human
+**/
 process remove_human_pe{
   script:
   """
