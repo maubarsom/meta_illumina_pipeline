@@ -1,6 +1,6 @@
 #!/bin/bash
-
 set -euo verbose -o pipefail
+IFS='\n\t'
 
 BOWTIE_DB=/labcommon/db/bowtie2/grch38
 

@@ -1,5 +1,10 @@
 #!/bin/bash
 set -euo verbose -o pipefail
+IFS=$'\n\t'
+
+module load trimgalore/0.4.1
+module load bowtie2/2.3.0
+module load samtools/1.3
 
 module load trimgalore/0.4.1
 module load bowtie2/2.3.0
