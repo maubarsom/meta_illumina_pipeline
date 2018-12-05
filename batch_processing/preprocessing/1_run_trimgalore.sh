@@ -4,8 +4,6 @@ set -euo verbose -o pipefail
 READS_DIR=$1
 OUT_DIR=$2
 
-module load trimgalore/0.4.1
-
 mkdir -p 1_trimgalore
 
 trim_galore -q 20 --fastqc --fastqc_args "-k 10 -t 16" --illumina --paired --gzip \

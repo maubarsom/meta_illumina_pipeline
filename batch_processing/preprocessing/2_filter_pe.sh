@@ -2,9 +2,6 @@
 
 set -euo verbose -o pipefail
 
-module load bowtie2/2.3.0
-module load samtools/1.3
-
 BOWTIE_DB=/labcommon/db/bowtie2/grch38
 
 SAMPLE_ID=$1

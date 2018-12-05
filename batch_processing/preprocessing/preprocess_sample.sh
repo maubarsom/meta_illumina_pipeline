@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo verbose -o pipefail
 
+module load trimgalore/0.4.1
+module load bowtie2/2.3.0
+module load samtools/1.3
+
 SAMPLE_ID=$1
 READS_DIR=$2
 SCRIPTS_DIR=/labcommon/viral_discovery/meta_illumina_pipeline/batch_processing/preprocessing
