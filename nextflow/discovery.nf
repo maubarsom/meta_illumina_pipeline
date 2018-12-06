@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 params.fastq_dir='/users/maubar/fsbio/humanrm'
-fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2}.fastq.gz")
+fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,se}.fastq.gz",size:3)
 
 /**
 ASSEMBLY Module
@@ -70,6 +70,8 @@ NOTE: bbwrap/bbmap parameters
   * subfilter limits the number of mismatches for an alignment
 */
 process asm_map_reads_to_contigs{
+  tag { "${sample_id}/${assembler}" }
+
   publishDir "results/${sample_id}/${assembler}/2_filt_contigs"
 
   input:
@@ -85,9 +87,15 @@ process asm_map_reads_to_contigs{
 }
 
 process asm_mapping_stats{
+  input:
+  set sample_id, assembler,"reads_to_contigs.sam.gz"
+
+  output:
+  set sample_id, assembler,"samtools_flagstat.txt"
+
   script:
   """
-  samtools flagstat ${input_bam} > samtools_flagstat.txt
+  gunzip -c ${input_bam} | samtools flagstat - > samtools_flagstat.txt
   """
 }
 
@@ -130,6 +138,9 @@ process tax_reads_kraken2{
 
 }
 
+process tax_reads_kraken2_report{
+
+}
 
 /**
 TAX ASSIGNMENT - CONTIGS
@@ -138,8 +149,6 @@ TAX ASSIGNMENT - CONTIGS
 process tax_contigs_kraken2{
 
 }
-
-//process tax_contigs_mmseq2{ }
 
 process tax_contigs_diamond{
   script:
