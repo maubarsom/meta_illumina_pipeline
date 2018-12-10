@@ -10,7 +10,7 @@ IN_DIR=$2
 OUT_FILE=${SAMPLE_ID}_unpaired.fq.gz
 
 #If output file exists, do nothing
-if [ -e ${OUT_FILE} ]; then
+if [ -s "${OUT_FILE}" ]; then
 	echo "File ${OUT_FILE} already exists. Delete file to regenerate"
 	exit 0;
 fi
@@ -21,7 +21,8 @@ mkfifo SE_PIPE
 mkdir -p log
 
 #Merge unpaired into a single file
-cat ${IN_DIR}/*_unpaired_2.fq.gz >> ${IN_DIR}/*_unpaired_1.fq.gz && rm ${IN_DIR}/*_unpaired_2.fq.gz
+cat ${IN_DIR}/*_unpaired_2.fq.gz >> ${IN_DIR}/*_unpaired_1.fq.gz 
+rm ${IN_DIR}/*_unpaired_2.fq.gz
 
 #Requires cutadapt
 cutadapt --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --error-rate=0.1 \

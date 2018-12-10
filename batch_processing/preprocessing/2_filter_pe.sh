@@ -29,7 +29,7 @@ cutadapt --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC --no-indels --er
 
 bowtie2 --local --very-sensitive-local -t -p 12 -x ${BOWTIE_DB} -1 R1_PIPE -2 R2_PIPE | \
 	tee >(samtools view -hSb - | samtools flagstat - > log/${SAMPLE_ID}_bowtie_pe.flagstat ) | \
-	samtools view -hSb -f12 -F256 - | samtools fastq -1 ${OUT_FILE_R1} -2 ${OUT_FILE_R2}
+	samtools view -hSb -f12 -F256 - | samtools fastq -1 ${OUT_FILE_R1} -2 ${OUT_FILE_R2} -
 
 #Remove named PIPEs
 rm R1_PIPE R2_PIPE
