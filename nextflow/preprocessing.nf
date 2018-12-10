@@ -90,7 +90,7 @@ process hostrm_map_to_grch38_pe{
 
   script:
   """
-  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.bowtie2_db} -1 r1.fq.gz -2 r2.fq.gz > pe.sam
+  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.bowtie2_grch38} -1 r1.fq.gz -2 r2.fq.gz > pe.sam
   """
 }
 
@@ -108,7 +108,7 @@ process hostrm_map_to_grch38_unpaired{
 
   script:
   """
-  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.bowtie2_db} -U unpaired.fq.gz > unpaired.sam
+  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.bowtie2_grch38} -U unpaired.fq.gz > unpaired.sam
   """
 }
 
@@ -127,9 +127,9 @@ hostrm_map_to_grch38_unpaired_out.into{ unpaired_stats_in ;
 mapping_stats_in = pe_stats_in.mix(unpaired_stats_in)
 
 process hostrm_mapping_stats{
-  module load 'samtools/1.9'
+  module 'samtools/1.9'
 
-  publishDir "preprocessing/${sample_id}/2_hostrm"
+  publishDir "preprocessing/${sample_id}/2_hostrm", mode:'copy'
   tag "${sample_id}_${read_type}"
 
   input:
@@ -145,35 +145,38 @@ process hostrm_mapping_stats{
 }
 
 process hostrm_sam_pe_to_fastq{
-  module load 'samtools/1.9'
+  module 'samtools/1.9'
 
-  tag{"${sample_id}"}
+  tag {"${sample_id}"}
+  publishDir "preprocessing/${sample_id}", mode:'link'
 
   input:
   set sample_id, read_type, 'pe.sam' from sam_pe_to_fastq_in
 
   output:
-  set sample_id, read_type, "${sample_id}_*.fq.gz", from sam_pe_to_fastq_out
+  set sample_id, read_type, "${sample_id}_*.fq.gz" into sam_pe_to_fastq_out
 
   script:
   """
-  samtools view -hSb -f12 -F256 pe.sam | samtools fastq -1 "${sample_id}_1.fq.gz" -s "${sample_id}_2.fq.gz" -
+  samtools view -hSb -f12 -F256 pe.sam | samtools fastq -1 ${sample_id}_1.fq.gz -2 ${sample_id}_2.fq.gz -
   """
 }
 
 process hostrm_sam_unpaired_to_fastq{
-  module load 'samtools/1.9'
+
+  module 'samtools/1.9'
 
   tag{"${sample_id}"}
+  publishDir "preprocessing/${sample_id}", mode:'link'
 
   input:
   set sample_id, read_type, 'unpaired.sam' from sam_unpaired_to_fastq_in
 
   output:
-  set sample_id, read_type, "${sample_id}_unpaired.fq.gz", from sam_unpaired_to_fastq_out
+  set sample_id, read_type, "${sample_id}_unpaired.fq.gz" into sam_unpaired_to_fastq_out
 
   script:
   """
-  samtools view -hSb -f4 -F256 unpaired.sam | samtools fastq -0 unpaired.fq.gz -
+  samtools view -hSb -f4 -F256 unpaired.sam | samtools fastq -0 ${sample_id}_unpaired.fq.gz -
   """
 }
