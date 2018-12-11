@@ -1,7 +1,16 @@
 #!/usr/bin/env nextflow
 
-params.fastq_dir='/users/maubar/fsbio/humanrm'
-fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,se}.fastq.gz",size:3)
+params.fastq_dir=preprocessing
+fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,unpaired}.fq.gz",size:3)
+
+
+fastq_files.into{
+  asm_megahit_in;
+  asm_metaspades_in;
+  reads_to_map;
+  tax_reads_metaphlan2_in;
+  tax_reads_kraken2_in
+ }
 
 /**
 ASSEMBLY Module
@@ -34,7 +43,7 @@ process asm_metaspades{
   publishDir "results/${sample_id}/metaspades"
 
   input:
-  set sample_id, reads from asm_megahit_in
+  set sample_id, reads from asm_metaspades_in
 
   output:
   set sample_id,val('metaspades'),"contigs.fa" optional true into asm_spades_out
@@ -47,21 +56,43 @@ process asm_metaspades{
   """
 }
 
+/*
+NOTE: Combine contigs into a single channels
+*/
+all_assemblies = asm_megahit.mix(asm_metaspades)
+
 process asm_filter_contigs{
   tag { "${sample_id}/${assembler}" }
   publishDir "results/${sample_id}/${assembler}/2_filt_contigs"
 
   input:
-  set sample_id,assembler,"contigs.fa" from assemblies
+  set sample_id,assembler,"contigs.fa" from all_assemblies
 
   output:
-  set sample_id,assembler,"contigs_filt.fa" into filtered_contigs
+  set sample_id,assembler,"contigs_filt.fa" into asm_filter_contigs_out
 
   script:
   """
   seqtk seq -L ${params.min_ctg_size} contigs.fa > contigs_filt.fa
   """
 }
+
+/*
+Clone the contigs into different channels
+*/
+asm_filter_contigs_out.into{
+  contigs_to_be_mapped;
+  tax_contigs_diamond_in;
+  tax_contigs_kraken2_in;
+  tax_contigs_virfinder_in;
+  tax_contigs_virsorter_in
+  /*TODO: COMPLETE THIS LIST */
+}
+
+/*
+Combine reads and contigs for mapping
+*/
+asm_map_reads_to_contigs_in = reads_to_map.cross(contigs_to_be_mapped).map{ it[0]+it[1][1,2] }
 
 /**
 NOTE: bbwrap/bbmap parameters
@@ -75,7 +106,7 @@ process asm_map_reads_to_contigs{
   publishDir "results/${sample_id}/${assembler}/2_filt_contigs"
 
   input:
-  set sample_id, assembler,"contigs_filt.fa" from map_reads_in
+  set sample_id, 'reads*.fq.gz',assembler,"contigs_filt.fa" from asm_map_reads_to_contigs_in
 
   output:
   set sample_id, assembler,"reads_to_contigs.sam.gz"
@@ -87,6 +118,10 @@ process asm_map_reads_to_contigs{
 }
 
 process asm_mapping_stats{
+  tag { "${sample_id}/${assembler}" }
+
+  publishDir "results/${sample_id}/${assembler}/2_filt_contigs"
+
   input:
   set sample_id, assembler,"reads_to_contigs.sam.gz"
 
