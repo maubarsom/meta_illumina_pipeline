@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 params.fastq_dir='preprocessing'
-fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,unpaired}.fq.gz",size:3)
+fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,unpaired}.fq.gz",size:3).first()
 
 
 fastq_files.into{
@@ -9,7 +9,8 @@ fastq_files.into{
   asm_metaspades_in;
   reads_to_map;
   tax_reads_metaphlan2_in;
-  tax_reads_kraken2_in
+  tax_reads_kraken2_in;
+  tax_reads_FastViromeExplorer_in
  }
 
 /**
@@ -37,7 +38,10 @@ process asm_megahit{
   """
 }
 
-/* NOTE: MetaSPAdes does not support incorporating the single reads */
+/* 
+NOTE: MetaSPAdes does not support incorporating the single reads
+TODO: figure out how to use a scratch folder? --tmp-dir opt
+*/
 process asm_metaspades{
   tag { "${sample_id}" }
   publishDir "results/${sample_id}/metaspades"
@@ -46,12 +50,12 @@ process asm_metaspades{
   set sample_id, reads from asm_metaspades_in
 
   output:
-  set sample_id,val('metaspades'),"contigs.fa" optional true into asm_spades_out
-  file "1_assembly" optional true into asm_spades_dir_out
+  set sample_id,val('metaspades'),"contigs.fa" optional true into asm_metaspades_out
+  file "1_assembly" optional true into asm_metaspades_dir_out
 
   script:
   """
-  spades.py --meta -t ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} -o 1_assembly --tmp-dir \${TMP_DIR} -m 124
+  spades.py --meta -t ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} -o 1_assembly -m 124
   if [ -s 1_assembly/contigs.fasta ]; then ln 1_assembly/contigs.fasta contigs.fa; fi
   """
 }
@@ -59,7 +63,7 @@ process asm_metaspades{
 /*
 NOTE: Combine contigs into a single channels
 */
-all_assemblies = asm_megahit.mix(asm_metaspades)
+all_assemblies = asm_megahit_out.mix(asm_metaspades_out)
 
 process asm_filter_contigs{
   tag { "${sample_id}/${assembler}" }
@@ -207,7 +211,7 @@ process tax_reads_FastViromeExplorer{
   publishDir "results/${sample_id}/reads", mode:'link'
 
   input:
-  set sample_id, 'reads_*.fq.gz' from tax_reads_metaphlan2_in
+  set sample_id, 'reads_*.fq.gz' from tax_reads_FastViromeExplorer_in
 
   output:
   file "${sample_id}_fastviromeexplorer.sam" into fve_out_1
@@ -234,7 +238,7 @@ process tax_contigs_kraken2{
   set sample_id, assembler, 'contigs.fa' from tax_contigs_kraken2_in
 
   output:
-  set sample_id, assembler,"${sample_id}_${assembler}_kraken2.txt","${sample_id}_${assembler}_kraken2_report.txt" into tax_reads_kraken2_out
+  set sample_id, assembler,"${sample_id}_${assembler}_kraken2.txt","${sample_id}_${assembler}_kraken2_report.txt" into tax_contigs_kraken2_out
 
   script:
   """
