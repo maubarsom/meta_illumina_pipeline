@@ -1,7 +1,12 @@
 #!/usr/bin/env nextflow
 
+/*
+How to run:
+nextflow -C discovery.nf.config run discovery.nf --fastq_files preprocessing -profile hamlet
+*/
+
 params.fastq_dir='preprocessing'
-fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,unpaired}.fq.gz",size:3).first()
+fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,unpaired}.fq.gz",size:3)
 
 
 fastq_files.into{
@@ -56,7 +61,7 @@ process asm_metaspades{
 
   script:
   """
-  spades.py --meta -t ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} -o 1_assembly -m 124
+  spades.py --meta -t ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} -o 1_assembly -m ${params.max_spades_mem}
   if [ -s 1_assembly/contigs.fasta ]; then ln 1_assembly/contigs.fasta contigs.fa; fi
   """
 }
@@ -243,7 +248,7 @@ process tax_contigs_kraken2{
 
   script:
   """
-  kraken2 --db ${params.kraken2_db} --threads ${task.cpus} --output ${sample_id}_${assembler}_kraken2.txt \
+  kraken2 --db ${params.kraken2_db} --threads ${task.cpus} --use-names --output ${sample_id}_${assembler}_kraken2.txt \
     --report ${sample_id}_${assembler}_kraken2_report.txt contigs.fa
   """
 }
