@@ -22,7 +22,7 @@ TODO: Run also SPAdes standard pipeline or only MetaSpades?
 
 process asm_megahit{
   tag { "${sample_id}" }
-  publishDir "results/${sample_id}/megahit", mode: 'copy', pattern: "1_assembly"
+  publishDir "${params.publish_base_dir}/${sample_id}/megahit", mode: 'copy', pattern: "1_assembly"
 
   input:
   set sample_id, reads from asm_megahit_in
@@ -44,10 +44,11 @@ TODO: figure out how to use a scratch folder? --tmp-dir opt
 */
 process asm_metaspades{
   tag { "${sample_id}" }
-  publishDir "results/${sample_id}/metaspades"
+  publishDir "${params.publish_base_dir}/${sample_id}/metaspades"
 
   input:
-  set sample_id, reads from asm_metaspades_in
+  //set sample_id, reads from asm_metaspades_in
+  set sample_id, reads from Channel.empty()
 
   output:
   set sample_id,val('metaspades'),"contigs.fa" optional true into asm_metaspades_out
@@ -67,7 +68,7 @@ all_assemblies = asm_megahit_out.mix(asm_metaspades_out)
 
 process asm_filter_contigs{
   tag { "${sample_id}/${assembler}" }
-  publishDir "results/${sample_id}/${assembler}/2_filt_contigs"
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/2_filt_contigs"
 
   input:
   set sample_id,assembler,"contigs.fa" from all_assemblies
@@ -107,7 +108,7 @@ NOTE: bbwrap/bbmap parameters
 process asm_map_reads_to_contigs{
   tag { "${sample_id}/${assembler}" }
 
-  publishDir "results/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
 
   input:
   set sample_id, 'reads_*.fq.gz',assembler,"contigs_filt.fa" from asm_map_reads_to_contigs_in
@@ -132,7 +133,7 @@ asm_map_reads_to_contigs_out.into{ asm_mapping_stats_in;
 process asm_mapping_stats{
   tag {"${sample_id}/${assembler}"}
 
-  publishDir "results/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
 
   input:
   set sample_id, assembler,'reads_to_contigs.sam.gz' from asm_mapping_stats_in
@@ -149,7 +150,7 @@ process asm_mapping_stats{
 process asm_per_ctg_coverage{
   tag {"${sample_id}/${assembler}"}
 
-  publishDir "results/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
 
   input:
   set sample_id, assembler,"reads_to_contigs.sam.gz" from asm_per_ctg_coverage_in
@@ -169,7 +170,7 @@ TAX ASSIGNMENT - READS
 process tax_reads_metaphlan2{
   tag {"${sample_id}"}
 
-  publishDir "results/${sample_id}/reads", mode:'link'
+  publishDir "${params.publish_base_dir}/${sample_id}/reads", mode:'link'
 
   input:
   set sample_id, 'reads_*.fq.gz' from tax_reads_metaphlan2_in
@@ -187,7 +188,7 @@ process tax_reads_metaphlan2{
 process tax_reads_kraken2{
   tag {"${sample_id}"}
 
-  publishDir "results/${sample_id}/reads", mode:'link'
+  publishDir "${params.publish_base_dir}/${sample_id}/reads", mode:'link'
 
   input:
   set sample_id, 'reads_*.fq.gz' from tax_reads_kraken2_in
@@ -208,7 +209,7 @@ TODO: Choose between  NCBI RefSeq or  IMG/VR database
 process tax_reads_FastViromeExplorer{
   tag {"${sample_id}"}
 
-  publishDir "results/${sample_id}/reads", mode:'link'
+  publishDir "${params.publish_base_dir}/${sample_id}/reads", mode:'link'
 
   input:
   set sample_id, 'reads_*.fq.gz' from tax_reads_FastViromeExplorer_in
@@ -232,7 +233,7 @@ TAX ASSIGNMENT - CONTIGS
 process tax_contigs_kraken2{
   tag {"${sample_id}_${assembler}"}
 
-  publishDir "results/${sample_id}/${assembler}"
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}"
 
   input:
   set sample_id, assembler, 'contigs.fa' from tax_contigs_kraken2_in
