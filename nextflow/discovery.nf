@@ -1,6 +1,6 @@
 #!/usr/bin/env nextflow
 
-params.fastq_dir=preprocessing
+params.fastq_dir='preprocessing'
 fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_{1,2,unpaired}.fq.gz",size:3)
 
 
@@ -165,7 +165,7 @@ TAX ASSIGNMENT - READS
 process tax_reads_metaphlan2{
   tag {"${sample_id}"}
 
-  publishDir "results/${sample_id}/reads"
+  publishDir "results/${sample_id}/reads", mode:'link'
 
   input:
   set sample_id, 'reads_*.fq.gz' from tax_reads_metaphlan2_in
@@ -175,14 +175,15 @@ process tax_reads_metaphlan2{
 
   script:
   """
-  metaphlan2.py --mpa_pkl ${mpa2_pkl} --bowtie2db ${mpa2_bowtie2db} \
-  		--bowtie2out /dev/null --nproc ${task.cpus} --input_type multifastq \
-  		--sample_id_key '#clade' --sample_id '${sample_id}' <(zcat reads_*.fq.gz) ${sample_id}_metaphlan2.tsv
+  metaphlan2.py --nproc ${task.cpus} --input_type multifastq --sample_id_key '#clade' \
+  		--sample_id '${sample_id}' <(zcat reads_*.fq.gz) ${sample_id}_metaphlan2.tsv
   """
 }
 
 process tax_reads_kraken2{
   tag {"${sample_id}"}
+
+  publishDir "results/${sample_id}/reads", mode:'link'
 
   input:
   set sample_id, 'reads_*.fq.gz' from tax_reads_kraken2_in
@@ -203,16 +204,20 @@ TODO: Choose between  NCBI RefSeq or  IMG/VR database
 process tax_reads_FastViromeExplorer{
   tag {"${sample_id}"}
 
+  publishDir "results/${sample_id}/reads", mode:'link'
+
   input:
   set sample_id, 'reads_*.fq.gz' from tax_reads_metaphlan2_in
 
   output:
-  file "FastViromeExplorer-reads-mapped-sorted.sam" into tax_reads_metaphlan2_out
-  file "FastViromeExplorer-final-sorted-abundance.tsv" into fve_out_2
+  file "${sample_id}_fastviromeexplorer.sam" into fve_out_1
+  file "${sample_id}_fastviromeexplorer_abundance.tsv" into fve_out_2
 
   script:
   """
-  java -cp bin FastViromeExplorer -1 reads_1.fq.gz -2 reads_2.fq.gz -i ${params.FVE_index} -o ./
+  java -cp \${FVE_PATH}/bin FastViromeExplorer -i ${params.FVE_index} -l ${params.FVE_viruslist} -1 reads_1.fq.gz -2 reads_2.fq.gz  -o ./
+  mv FastViromeExplorer-reads-mapped-sorted.sam ${sample_id}_fastviromeexplorer.sam
+  mv FastViromeExplorer-final-sorted-abundance.tsv ${sample_id}_fastviromeexplorer_abundance.tsv
   """
 }
 
@@ -223,7 +228,7 @@ TAX ASSIGNMENT - CONTIGS
 process tax_contigs_kraken2{
   tag {"${sample_id}_${assembler}"}
 
-  publishDir "results/${sample_id}"
+  publishDir "results/${sample_id}/${assembler}"
 
   input:
   set sample_id, assembler, 'contigs.fa' from tax_contigs_kraken2_in
@@ -233,20 +238,20 @@ process tax_contigs_kraken2{
 
   script:
   """
-  kraken2 --db ${params.kraken2_db} --threads ${task.cpus} --output ${sample_id}_kraken2.txt \
-    --report ${sample_id}_kraken2_report.txt --gzip-compressed reads_*.fq.gz
+  kraken2 --db ${params.kraken2_db} --threads ${task.cpus} --output ${sample_id}_${assembler}_kraken2.txt \
+    --report ${sample_id}_${assembler}_kraken2_report.txt contigs.fa
   """
 }
 
-}
 
-process tax_contigs_diamond{}
+//process tax_contigs_diamond{}
 
 /*
 NOTE: https://github.com/EnvGen/toolbox/tree/master/scripts/assign_taxonomy_from_blast
 */
-process tax_diamond_lca{}
+//process tax_diamond_lca{}
 
+/*
 process tax_contigs_virfinder{
   script:
   """
@@ -276,3 +281,4 @@ process tax_orfs_hmmscan{
   hmmscan --cpu ${task.cpus} $(hmmscan_opts) -o $@ $| $<
   """
 }
+*/
