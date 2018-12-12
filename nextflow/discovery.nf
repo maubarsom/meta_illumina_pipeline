@@ -44,7 +44,7 @@ TODO: figure out how to use a scratch folder? --tmp-dir opt
 */
 process asm_metaspades{
   tag { "${sample_id}" }
-  publishDir "${params.publish_base_dir}/${sample_id}/metaspades"
+  publishDir "${params.publish_base_dir}/${sample_id}/metaspades", mode: 'copy', pattern: "1_assembly"
 
   input:
   //set sample_id, reads from asm_metaspades_in
@@ -68,7 +68,7 @@ all_assemblies = asm_megahit_out.mix(asm_metaspades_out)
 
 process asm_filter_contigs{
   tag { "${sample_id}/${assembler}" }
-  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/2_filt_contigs"
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/2_filt_contigs", mode:'link'
 
   input:
   set sample_id,assembler,"contigs.fa" from all_assemblies
@@ -233,7 +233,7 @@ TAX ASSIGNMENT - CONTIGS
 process tax_contigs_kraken2{
   tag {"${sample_id}_${assembler}"}
 
-  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}"
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}", mode:'link'
 
   input:
   set sample_id, assembler, 'contigs.fa' from tax_contigs_kraken2_in
