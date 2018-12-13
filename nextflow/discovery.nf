@@ -43,7 +43,7 @@ process asm_megahit{
   """
 }
 
-/* 
+/*
 NOTE: MetaSPAdes does not support incorporating the single reads
 TODO: figure out how to use a scratch folder? --tmp-dir opt
 */
@@ -254,7 +254,46 @@ process tax_contigs_kraken2{
 }
 
 
-//process tax_contigs_diamond{}
+process tax_contigs_diamond{
+  tag {"${sample_id}_${assembler}"}
+
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}", mode:'link'
+
+  input:
+  set sample_id, assembler, 'contigs.fa' from tax_contigs_diamond_in
+
+  output:
+  set sample_id, assembler,"${sample_id}_${assembler}_diamond.daa" into tax_contigs_diamond_out
+
+  script:
+  """
+  diamond blastx --sensitive --masking 1 -p ${task.cpus} --db ${params.diamond_db} \
+    --taxonmap ${params.diamond_taxonmap} --taxonnodes ${params.diamond_taxonnodes} \
+    --query contigs.fa --outfmt 100 --out ${sample_id}_${assembler}_diamond.daa \
+    --un ${sample_id}_${assembler}_diamond_unmapped.fa
+  """
+}
+
+process tax_contigs_diamond_view{
+  tag {"${sample_id}_${assembler}"}
+
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}", mode:'link'
+
+  input:
+  set sample_id, assembler, 'diamond.daa' from tax_contigs_diamond_out
+
+  output:
+  set sample_id, assembler,"${sample_id}_${assembler}_diamond.daa" into tax_contigs_diamond_view_out
+
+  script:
+  """
+  diamond view -p ${task.cpus} --db ${params.diamond_db} \
+    --taxonmap ${params.diamond_taxonmap} --taxonnodes ${params.diamond_taxonnodes} \
+    --daa ${sample_id}_${assembler}_diamond.daa \
+    --out ${sample_id}_${assembler}_diamond_unmapped.fa
+  """
+}
+
 
 /*
 NOTE: https://github.com/EnvGen/toolbox/tree/master/scripts/assign_taxonomy_from_blast
