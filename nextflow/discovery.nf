@@ -245,10 +245,13 @@ process tax_contigs_kraken2{
 
   output:
   set sample_id, assembler,"${sample_id}_${assembler}_kraken2.txt","${sample_id}_${assembler}_kraken2_report.txt" into tax_contigs_kraken2_out
+  file "${sample_id}_${assembler}_kraken2_unmapped.fa" into tax_contigs_kraken2_unmapped
 
   script:
   """
-  kraken2 --db ${params.kraken2_db} --threads ${task.cpus} --use-names --output ${sample_id}_${assembler}_kraken2.txt \
+  kraken2 --db ${params.kraken2_db} --threads ${task.cpus} --use-names \
+    --unclassified-out ${sample_id}_${assembler}_kraken2_unmapped.fa \
+    --output ${sample_id}_${assembler}_kraken2.txt \
     --report ${sample_id}_${assembler}_kraken2_report.txt contigs.fa
   """
 }
@@ -264,6 +267,7 @@ process tax_contigs_diamond{
 
   output:
   set sample_id, assembler,"${sample_id}_${assembler}_diamond.daa" into tax_contigs_diamond_out
+  file "${sample_id}_${assembler}_diamond_unmapped.fa" into diamond_unmapped_out
 
   script:
   """
@@ -300,26 +304,47 @@ NOTE: https://github.com/EnvGen/toolbox/tree/master/scripts/assign_taxonomy_from
 */
 //process tax_diamond_lca{}
 
-/*
+
 process tax_contigs_virfinder{
+  tag {"${sample_id}_${assembler}"}
+
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}", mode:'link'
+
+  input:
+  set sample_id, assembler, 'contigs.fa' from tax_contigs_virfinder_in
+
+  output:
+  set sample_id, assembler,"${sample_id}_${assembler}_virfinder.tsv" into tax_contigs_virfinder_out
+
   script:
   """
   #!/usr/bin/env Rscript
   library(VirFinder)
-  predResult <- VF.pred("${lolol}")
-  write.tsv(predResult,file="jojoj.tsv")
+  predResult <- VF.pred("contigs.fa")
+  write.tsv(predResult,file="${sample_id}_${assembler}_virfinder.tsv")
   """
 }
 
-process tax_contigs_virsorter{}
 
 process tax_contigs_FragGeneScan{
+  tag {"${sample_id}_${assembler}"}
+
+  publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/orfs", mode:'link'
+
+  input:
+  set sample_id, assembler, 'contigs.fa' from tax_contigs_fgs_out
+
+  output:
+  set sample_id, assembler,"${sample_id}_${assembler}_fgs_orfs.faa" into tax_contigs_fgs_out
+
   script:
   """
-  $(FGS_BIN) -genome=$^ -out=$(basename $@) -complete=0 -train=illumina_10
+  run_FragGeneScan.pl -thread ${task.cpus} -complete 1 -train=illumina_10 \
+    -genome=contigs.fa -out=${sample_id}_${assembler}_fgs_orfs.faa
   """
 }
 
+/*
 process tax_orfs_hmmscan{
   input:
   set sample_id,contigs_id from dummy_in
@@ -331,3 +356,5 @@ process tax_orfs_hmmscan{
   """
 }
 */
+
+//process tax_contigs_virsorter{}
