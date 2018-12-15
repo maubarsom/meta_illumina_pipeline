@@ -288,9 +288,9 @@ process tax_contigs_diamond_view{
   script:
   """
   diamond view -p ${task.cpus} --db ${params.diamond_db} \
-    --taxonmap ${params.diamond_taxonmap} --taxonnodes ${params.diamond_taxonnodes} \
+    --outfmt 6 qseqid sseqid qstart qend sstart ssend evalue score length pident nident mismatch positive ppos gapopen gaps staxids
     --daa ${sample_id}_${assembler}_diamond.daa \
-    --out ${sample_id}_${assembler}_diamond_unmapped.fa
+    --out ${sample_id}_${assembler}_diamond.tsv
   """
 }
 
