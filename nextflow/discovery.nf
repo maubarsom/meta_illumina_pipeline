@@ -95,6 +95,7 @@ asm_filter_contigs_out.into{
   tax_contigs_diamond_in;
   tax_contigs_kraken2_in;
   tax_contigs_virfinder_in;
+  tax_contigs_fgs_in;
   tax_contigs_virsorter_in
   /*TODO: COMPLETE THIS LIST */
 }
@@ -292,8 +293,8 @@ process tax_contigs_diamond_view{
   script:
   """
   diamond view -p ${task.cpus} --db ${params.diamond_db} \
-    --outfmt 6 qseqid sseqid qstart qend sstart ssend evalue score length pident nident mismatch positive ppos gapopen gaps staxids
-    --daa ${sample_id}_${assembler}_diamond.daa \
+    --outfmt 6 qseqid sseqid qstart qend sstart send evalue score length pident nident mismatch positive ppos gapopen gaps staxids \
+    --daa diamond.daa \
     --out ${sample_id}_${assembler}_diamond.tsv
   """
 }
@@ -314,14 +315,14 @@ process tax_contigs_virfinder{
   set sample_id, assembler, 'contigs.fa' from tax_contigs_virfinder_in
 
   output:
-  set sample_id, assembler,"${sample_id}_${assembler}_virfinder.tsv" into tax_contigs_virfinder_out
+  set sample_id, assembler,"${sample_id}_${assembler}_virfinder.csv" into tax_contigs_virfinder_out
 
   script:
   """
   #!/usr/bin/env Rscript
   library(VirFinder)
   predResult <- VF.pred("contigs.fa")
-  write.tsv(predResult,file="${sample_id}_${assembler}_virfinder.tsv")
+  write.csv(predResult,file="${sample_id}_${assembler}_virfinder.csv")
   """
 }
 
@@ -332,15 +333,15 @@ process tax_contigs_FragGeneScan{
   publishDir "${params.publish_base_dir}/${sample_id}/${assembler}/orfs", mode:'link'
 
   input:
-  set sample_id, assembler, 'contigs.fa' from tax_contigs_fgs_out
+  set sample_id, assembler, 'contigs.fa' from tax_contigs_fgs_in
 
   output:
-  set sample_id, assembler,"${sample_id}_${assembler}_fgs_orfs.faa" into tax_contigs_fgs_out
+  set sample_id, assembler,"${sample_id}_${assembler}_fgs_orfs.*" into tax_contigs_fgs_out
 
   script:
   """
   run_FragGeneScan.pl -thread ${task.cpus} -complete 1 -train=illumina_10 \
-    -genome=contigs.fa -out=${sample_id}_${assembler}_fgs_orfs.faa
+    -genome=contigs.fa -out=${sample_id}_${assembler}_fgs_orfs
   """
 }
 
