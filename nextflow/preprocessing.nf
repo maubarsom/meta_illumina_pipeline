@@ -7,6 +7,7 @@ fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_R{1,2}*.fastq.gz")
 
 
 process qf_trimgalore{
+  cpus 8
   tag {"${sample_id}"}
   module 'trimgalore/0.5.0'
   publishDir "preprocessing/${sample_id}", mode: 'copy', pattern: "1_trimgalore_stats"
@@ -22,7 +23,7 @@ process qf_trimgalore{
   script:
   """
   mkdir trimgalore_out
-  trim_galore -q 20 --fastqc --fastqc_args '-k 10 -t 16' --illumina --paired --gzip \
+  trim_galore -q 20 --fastqc --fastqc_args '-k 10 -t ${task.cpus}' --illumina --paired --gzip \
   	--stringency 5 --length 60 --output_dir trimgalore_out --trim1 \
   	--retain_unpaired -r1 85 -r2 85 ${reads[0]} ${reads[1]}
 
@@ -128,6 +129,7 @@ mapping_stats_in = pe_stats_in.mix(unpaired_stats_in)
 
 process hostrm_mapping_stats{
   module 'samtools/1.9'
+  cpus 2
 
   publishDir "preprocessing/${sample_id}/2_hostrm", mode:'copy'
   tag "${sample_id}_${read_type}"
@@ -146,6 +148,7 @@ process hostrm_mapping_stats{
 
 process hostrm_sam_pe_to_fastq{
   module 'samtools/1.9'
+  cpus 2
 
   tag {"${sample_id}"}
   publishDir "preprocessing/${sample_id}", mode:'link'
@@ -163,8 +166,8 @@ process hostrm_sam_pe_to_fastq{
 }
 
 process hostrm_sam_unpaired_to_fastq{
-
   module 'samtools/1.9'
+  cpus 2
 
   tag{"${sample_id}"}
   publishDir "preprocessing/${sample_id}", mode:'link'
