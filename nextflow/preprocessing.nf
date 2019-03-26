@@ -42,12 +42,14 @@ process qf_trimgalore{
 
 process qf_remove_sispa_adapters_pe{
   tag {"${sample_id}"}
+  publishDir "preprocessing/${sample_id}/log", mode: 'link', pattern: "*.log"
 
   input:
   set sample_id,'r*.fq.gz' from trimgalore_pe_out
 
   output:
   set sample_id,'r{1,2}_nosispa.fq.gz' into cutadapt_pe_out
+  file 'sispa_pe_cutadapt.log' into cutadapt_pe_log
 
   script:
   """
@@ -55,18 +57,20 @@ process qf_remove_sispa_adapters_pe{
     -G ^GCCGGAGCTCTGCAGATATC -G ^GGAGCTCTGCAGATATC \
     --no-indels --error-rate=0.1 -f 'fastq' \
     --pair-filter=both -m 65 \
-    -o r1_nosispa.fq.gz -p r2_nosispa.fq.gz r1.fq.gz r2.fq.gz
+    -o r1_nosispa.fq.gz -p r2_nosispa.fq.gz r1.fq.gz r2.fq.gz 2> sispa_pe_cutadapt.log
   """
 }
 
 process qf_remove_sispa_adapters_se{
   tag {"${sample_id}"}
+  publishDir "preprocessing/${sample_id}/log", mode: 'link', pattern: "*.log"
 
   input:
   set sample_id,'unpaired*.fq.gz' from trimgalore_unpaired_out
 
   output:
   set sample_id,'unpaired_nosispa.fq.gz' into cutadapt_unpaired_out
+  file "sispa_unpaired_cutadapt.log" into cutadapt_unpaired_log
 
   script:
   """
@@ -75,7 +79,7 @@ process qf_remove_sispa_adapters_se{
 
   cutadapt --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC \
     --no-indels --error-rate=0.1 -m 65 \
-    -o unpaired_nosispa.fq.gz concat_unpaired.fq.gz
+    -o unpaired_nosispa.fq.gz concat_unpaired.fq.gz 2> sispa_unpaired_cutadapt.log
   """
 }
 
@@ -84,31 +88,35 @@ TODO: This should remove both PhiX and Human
 **/
 process hostrm_map_to_grch38_pe{
   tag "${sample_id}"
+  publishDir "preprocessing/${sample_id}/log", mode: 'link', pattern: "*.log"
 
   input:
   set sample_id, 'r*.fq.gz' from cutadapt_pe_out
 
   output:
   set sample_id, val('pe'), 'pe.sam' into hostrm_map_to_grch38_pe_out
+  file 'bowtie2_pe.log' into bowtie2_pe_log
 
   script:
   """
-  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.hostrm_bowtie2_idx} -1 r1.fq.gz -2 r2.fq.gz > pe.sam
+  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.hostrm_bowtie2_idx} -1 r1.fq.gz -2 r2.fq.gz > pe.sam 2> bowtie2_pe.log
   """
 }
 
 process hostrm_map_to_grch38_unpaired{
   tag "${sample_id}"
+  publishDir "preprocessing/${sample_id}/log", mode: 'link', pattern: "*.log"
 
   input:
   set sample_id, 'unpaired.fq.gz' from cutadapt_unpaired_out
 
   output:
   set sample_id, val('unpaired'), 'unpaired.sam' into hostrm_map_to_grch38_unpaired_out
+  file 'bowtie2_se.log' into bowtie2_se_log
 
   script:
   """
-  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.hostrm_bowtie2_idx} -U unpaired.fq.gz > unpaired.sam
+  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.hostrm_bowtie2_idx} -U unpaired.fq.gz > unpaired.sam 2> bowtie2_unpaired.log
   """
 }
 
