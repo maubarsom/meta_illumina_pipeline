@@ -8,9 +8,10 @@ nextflow -C preprocessing.nf.config run preprocessing.nf --fastq_files preproces
 */
 
 params.fastq_dir='reads/'
-
-fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*.fastq.gz"){ (it.name =~ /P[0-9]{3,4}_[0-9]{3,4}/)[0]}
-
+// Assume all fastq files are in the read folder
+fastq_files = Channel.fromFilePairs("${params.fastq_dir}/*.fastq.gz"){ (it.name =~ /P[0-9]{3,5}_[0-9]{3,5}/)[0]}
+// Uncomment this is fastq files are nested deep
+//fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*.fastq.gz"){ (it.name =~ /P[0-9]{3,5}_[0-9]{3,5}/)[0]}
 
 process qf_trimgalore{
   cpus 8
