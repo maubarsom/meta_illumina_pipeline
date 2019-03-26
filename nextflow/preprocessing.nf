@@ -112,7 +112,7 @@ process hostrm_map_to_grch38_unpaired{
 
   output:
   set sample_id, val('unpaired'), 'unpaired.sam' into hostrm_map_to_grch38_unpaired_out
-  file 'bowtie2_se.log' into bowtie2_se_log
+  file 'bowtie2_unpaired.log' into bowtie2_se_log
 
   script:
   """
