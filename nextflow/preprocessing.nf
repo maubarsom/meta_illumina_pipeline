@@ -1,14 +1,19 @@
 #!/usr/bin/env nextflow
 
+/*
+How to run:
+nextflow -C preprocessing.nf.config run preprocessing.nf --fastq_files preprocessing -profile hamlet
+or
+nextflow -C preprocessing.nf.config run preprocessing.nf --fastq_files preprocessing -profile bianca
+*/
+
 params.fastq_dir='reads/'
-params.bowtie2_grch38='/labcommon/db/bowtie2/grch38'
 
 fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_R{1,2}*.fastq.gz")
 
 
 process qf_trimgalore{
   tag {"${sample_id}"}
-  module 'trimgalore/0.5.0'
   publishDir "preprocessing/${sample_id}", mode: 'copy', pattern: "1_trimgalore_stats"
 
   input:
@@ -77,9 +82,6 @@ process qf_remove_sispa_adapters_se{
 TODO: This should remove both PhiX and Human
 **/
 process hostrm_map_to_grch38_pe{
-  cpus 8
-  module 'bowtie2/2.3.4.3'
-
   tag "${sample_id}"
 
   input:
@@ -90,14 +92,11 @@ process hostrm_map_to_grch38_pe{
 
   script:
   """
-  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.bowtie2_grch38} -1 r1.fq.gz -2 r2.fq.gz > pe.sam
+  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.hostrm_bowtie2_idx} -1 r1.fq.gz -2 r2.fq.gz > pe.sam
   """
 }
 
 process hostrm_map_to_grch38_unpaired{
-  cpus 8
-  module 'bowtie2/2.3.4.3'
-
   tag "${sample_id}"
 
   input:
@@ -108,7 +107,7 @@ process hostrm_map_to_grch38_unpaired{
 
   script:
   """
-  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.bowtie2_grch38} -U unpaired.fq.gz > unpaired.sam
+  bowtie2 --local --very-sensitive-local -t -p ${task.cpus} -x ${params.hostrm_bowtie2_idx} -U unpaired.fq.gz > unpaired.sam
   """
 }
 
@@ -127,8 +126,6 @@ hostrm_map_to_grch38_unpaired_out.into{ unpaired_stats_in ;
 mapping_stats_in = pe_stats_in.mix(unpaired_stats_in)
 
 process hostrm_mapping_stats{
-  module 'samtools/1.9'
-
   publishDir "preprocessing/${sample_id}/2_hostrm", mode:'copy'
   tag "${sample_id}_${read_type}"
 
@@ -145,8 +142,6 @@ process hostrm_mapping_stats{
 }
 
 process hostrm_sam_pe_to_fastq{
-  module 'samtools/1.9'
-
   tag {"${sample_id}"}
   publishDir "preprocessing/${sample_id}", mode:'link'
 
@@ -163,9 +158,6 @@ process hostrm_sam_pe_to_fastq{
 }
 
 process hostrm_sam_unpaired_to_fastq{
-
-  module 'samtools/1.9'
-
   tag{"${sample_id}"}
   publishDir "preprocessing/${sample_id}", mode:'link'
 
