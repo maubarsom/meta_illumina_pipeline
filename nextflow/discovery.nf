@@ -267,15 +267,19 @@ process tax_contigs_diamond{
   set sample_id, assembler, 'contigs.fa' from tax_contigs_diamond_in
 
   output:
-  set sample_id, assembler,"${sample_id}_${assembler}_diamond.daa" into tax_contigs_diamond_out
+  set sample_id, assembler,"${sample_id}_${assembler}_diamond.tsv" into tax_contigs_diamond_out
   file "${sample_id}_${assembler}_diamond_unmapped.fa" into diamond_unmapped_out
+  file 'diamond_blast_cols.txt' into tax_diamond_blast_cols
 
   script:
+  blast_cols='qseqid sseqid qstart qend sstart send evalue score length pident nident mismatch positive ppos gapopen gaps staxids'
   """
   diamond blastx --sensitive --masking 1 -p ${task.cpus} --db ${params.diamond_db} \
     --taxonmap ${params.diamond_taxonmap} --taxonnodes ${params.diamond_taxonnodes} \
-    --query contigs.fa --outfmt 100 --out ${sample_id}_${assembler}_diamond.daa \
+    --query contigs.fa --out ${sample_id}_${assembler}_diamond.tsv \
+    --outfmt 6 ${blast_cols} \
     --un ${sample_id}_${assembler}_diamond_unmapped.fa
+  echo '${blast_cols}' > diamond_blast_cols.txt 
   """
 }
 
@@ -285,7 +289,7 @@ process tax_contigs_diamond_view{
   publishDir "${params.publish_base_dir}/${sample_id}/${assembler}", mode:'link'
 
   input:
-  set sample_id, assembler, 'diamond.daa' from tax_contigs_diamond_out
+  set sample_id, assembler, 'diamond.daa' from Channel.empty()
 
   output:
   set sample_id, assembler,"${sample_id}_${assembler}_diamond.daa" into tax_contigs_diamond_view_out
