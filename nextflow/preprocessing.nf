@@ -9,7 +9,7 @@ nextflow -C preprocessing.nf.config run preprocessing.nf --fastq_files preproces
 
 params.fastq_dir='reads/'
 
-fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*_R{1,2}*.fastq.gz")
+fastq_files = Channel.fromFilePairs("${params.fastq_dir}/**/*.fastq.gz"){ (it.name =~ /P[0-9]{3,4}_[0-9]{3,4}/)[0]}
 
 
 process qf_trimgalore{
