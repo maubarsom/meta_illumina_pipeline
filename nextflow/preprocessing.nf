@@ -18,7 +18,6 @@ fastq_files.into{qf_raw_fastqc_in;
 
 
 process qf_raw_fastqc{
-  cpus 8
   tag {"${sample_id}"}
   publishDir "preprocessing/${sample_id}/1_raw", mode: 'link'
 
@@ -44,7 +43,7 @@ process qf_trimgalore{
   output:
   set sample_id,'*_val_{1,2}.fq.gz' into trimgalore_pe_out
   set sample_id,'*_unpaired_{1,2}.fq.gz' into trimgalore_unpaired_out
-  file '1_trimgalore_stats' into trimgalore_stats_out
+  file '2_trimgalore' into trimgalore_stats_out
 
   script:
   """
