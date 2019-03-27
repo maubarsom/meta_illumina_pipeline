@@ -83,7 +83,7 @@ process qf_remove_sispa_adapters_pe{
 
   output:
   set sample_id,'r{1,2}_nosispa.fq.gz' into cutadapt_pe_out
-  file "${sample_id}_sispa_pe_cutadapt.log" into cutadapt_pe_log
+  file "${sample_id}_pe_sispa_cutadapt.log" into cutadapt_pe_log
 
   script:
   """
@@ -104,7 +104,7 @@ process qf_remove_sispa_adapters_se{
 
   output:
   set sample_id,'unpaired_nosispa.fq.gz' into cutadapt_unpaired_out
-  file "${sample_id}_sispa_unpaired_cutadapt.log" into cutadapt_unpaired_log
+  file "${sample_id}_unpaired_sispa_cutadapt.log" into cutadapt_unpaired_log
 
   script:
   """
@@ -126,7 +126,7 @@ process hostrm_map_to_grch38_pe{
 
   output:
   set sample_id, val('pe'), 'pe.sam' into hostrm_map_to_grch38_pe_out
-  file "${sample_id}_bowtie2_pe.log" into bowtie2_pe_log
+  file "${sample_id}_pe_bowtie2.log" into bowtie2_pe_log
 
   script:
   """
@@ -143,7 +143,7 @@ process hostrm_map_to_grch38_unpaired{
 
   output:
   set sample_id, val('unpaired'), 'unpaired.sam' into hostrm_map_to_grch38_unpaired_out
-  file "${sample_id}_bowtie2_unpaired.log" into bowtie2_se_log
+  file "${sample_id}_unpaired_bowtie2.log" into bowtie2_se_log
 
   script:
   """
