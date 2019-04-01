@@ -29,7 +29,7 @@ process qf_raw_fastqc{
 
   script:
   """
-  fastqc --noextract -k 10 -t ${task.cpus} *.fastq.gz
+  fastqc --noextract -t ${task.cpus} *.fastq.gz
   """
 }
 
@@ -61,7 +61,7 @@ process qf_concat_unpaired_reads{
   tag {"${sample_id}"}
 
   input:
-  set sample_id,'unpaired*.fq.gz' from trimgalore_unpaired_out
+  set sample_id,'*.fq.gz' from trimgalore_unpaired_out
 
   output:
   set sample_id,'unpaired.fq.gz' into concat_unpaired_reads_out
@@ -99,7 +99,7 @@ process qf_remove_sispa_adapters_se{
   publishDir "preprocessing/${sample_id}/3_sispa", mode: 'link', pattern: "*.log"
 
   input:
-  set sample_id,'unpaired*.fq.gz' from concat_unpaired_reads_out
+  set sample_id,'unpaired.fq.gz' from concat_unpaired_reads_out
 
   output:
   set sample_id,'unpaired_nosispa.fq.gz' into cutadapt_unpaired_out
@@ -109,7 +109,7 @@ process qf_remove_sispa_adapters_se{
   """
   cutadapt --cut=3 -g ^GCCGGAGCTCTGCAGATATC -g ^GGAGCTCTGCAGATATC \
     --no-indels --error-rate=0.1 -m 65 \
-    -o unpaired_nosispa.fq.gz concat_unpaired.fq.gz | tee ${sample_id}_unpaired_sispa_cutadapt.log
+    -o unpaired_nosispa.fq.gz unpaired.fq.gz | tee ${sample_id}_unpaired_sispa_cutadapt.log
   """
 }
 
@@ -173,11 +173,13 @@ process hostrm_mapping_stats{
   set sample_id, read_type, 'mapped.sam' from mapping_stats_in
 
   output:
-  file "${sample_id}_${read_type}.flagstat" into hostrm_mapping_stats_out
+  file "${sample_id}_${read_type}.flagstat" into hostrm_mapping_flagstat_out
+  file "${sample_id}_${read_type}.idxstats" into hostrm_mapping_idxstats_out
 
   script:
   """
   samtools view -hSb mapped.sam | samtools flagstat - > ${sample_id}_${read_type}.flagstat
+  samtools view -hSb mapped.sam | samtools idxstats - > ${sample_id}_${read_type}.idxstats
   """
 }
 
